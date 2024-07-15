@@ -1,0 +1,2 @@
+min_frequency = 3
+directory = "/Users/isabel/"

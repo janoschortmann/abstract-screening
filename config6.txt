@@ -1,0 +1,4 @@
+directory = "/Users/isabel/"
+step = 0.1
+acceptance_sampling_n = 20
+threshold = 1
