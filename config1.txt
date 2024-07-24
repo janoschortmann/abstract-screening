@@ -1,4 +1,4 @@
-directory = "/Users/isabel/"
+directory = "/Users/janosch/git/abstract-screening/"
 api_key = "7fa6c05f9892b531642a1aba4442dff4"
 token = "06ab2387a16e1b47ab1e4eac2e660a7d"
 query = "TITLE-ABS-KEY ("healthcare logistics")"

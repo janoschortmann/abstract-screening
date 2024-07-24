@@ -184,5 +184,5 @@ n_grams = pd.DataFrame(n_grams)
 pathfile_ngrams = directory + "n_grams.csv"
 n_grams.to_csv(pathfile_ngrams, header=False, index=False)
 
-print("The N-grams and their frequency have been saved in a csv file.")
+print(f"The N-grams and their frequency have been saved in {pathfile_ngrams}.")
 
