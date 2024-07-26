@@ -9,6 +9,11 @@ Created on Sat Jul 13 19:27:42 2024
 from scipy.stats import binom
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
+
+
+matplotlib.interactive(True)
+
 
 # Define the file path
 file_path = "config3.txt"
@@ -64,7 +69,10 @@ def probability_of_acceptance(n, c, p):
 
 # Plotting the OC curve
 p_values = np.linspace(0, 0.5, 500)
+
 acceptance_probabilities = [probability_of_acceptance(n, c, p) for p in p_values]
+
+
 
 plt.plot(p_values, acceptance_probabilities, label=f'n = {n}, c = {c}')
 plt.axhline(1 - alpha, color='red', linestyle='--', label=f'1 - alpha = {1 - alpha}')
@@ -77,3 +85,4 @@ plt.title('Operating Characteristic (OC) Curve')
 plt.legend()
 plt.grid(True)
 plt.show()
+plt.close()
