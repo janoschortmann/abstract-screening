@@ -1,7 +1,0 @@
-directory = "/Users/janosch/git/abstract-screening/"
-oversampling = 1
-undersampling = 0
-positives = 0.30
-n_splits = 10
-model_selection = "lr"
-
