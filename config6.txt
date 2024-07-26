@@ -1,3 +1,0 @@
-directory = "/Users/janosch/git/abstract-screening/"
-step = 0.1
-acceptance_sampling_n = 20
