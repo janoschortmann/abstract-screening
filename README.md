@@ -9,11 +9,11 @@ The tool works by viewing the choice of including a reference into the literatur
 
 ## How to use this tool
 
-A detailed instruction manual is provided, see the file [/instructions.pdf](instructions.pdf).
+A detailed instruction manual is provided, see the file [instructions.pdf](instructions.pdf).
 
 ACAS consists of four different Python scripts to be run sequentially. After running scripts 1 and 2, user intervention is required for adding manual inputs. 
 
-Before running the scripts, adapt the parameters to your requirement by editing the configuration files [/config1.txt](config1.txt) through [/config1.txt](config1.txt)
+Before running the scripts, adapt the parameters to your requirement by editing the configuration files [config1.txt](config1.txt) through [config1.txt](config1.txt)
 
 
 ## Requirements 
