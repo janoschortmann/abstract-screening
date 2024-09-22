@@ -45,4 +45,4 @@ In addition to software environment described above, the user either needs a fil
 ## Scientific reference
 
 
-Serrato-Fonseca, Julia Isabel; Anaya-Arenas, Ana María; Ortmann, Janosch; Ruiz, Angel. ACAS (2024). A comprehensive framework for automatic abstract screening in systematic literature reviews. _Cahiers du GERAD_ [https://www.gerad.ca/en/papers/G-2024-53/](G-2024-53).
+Serrato-Fonseca, Julia Isabel; Anaya-Arenas, Ana María; Ortmann, Janosch; Ruiz, Angel. ACAS (2024). A comprehensive framework for automatic abstract screening in systematic literature reviews. _Cahiers du GERAD_ [G-2024-53](https://www.gerad.ca/en/papers/G-2024-53/).
