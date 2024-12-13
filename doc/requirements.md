@@ -1,3 +1,27 @@
+# List of requirements
+## General Information
+### Introduction :
+The main idea for this project was already stated in [this paper](https://www.gerad.ca/en/papers/G-2024-53.pdf) and thus, won't be repeated here. This markdown document is mainly useful for forking and custom build repos that find their origin in this public git. For example, if one wants to train another model then the ones proposed (mainly the [decision tree model](https://en.wikipedia.org/wiki/Decision_tree) and the [logistic regression model](https://en.wikipedia.org/wiki/Logistic_regression)), but don't want to rewrite the whole code, this is the place.
+
+<br>
+
+For those that only want to use the UI and don't want to be bothered to look how it is done, please check the [instruction file](../README.md).
+
+<br>
+
+I will assume that if you are still reading this, you are interesting in modifying the code or there exists a bug and you want to know where it is happening. We will start by discussing the structure of this project.
+
+### Structure :
+As you may have noticed, this project is structured more in the likes of *Functional Programming* than *Object Oriented Programming*. That means that the flow of execution is more linear than most large structure repositories.
+
+<br>
+
+The first executed file is the [query retrieval](../python/src/scripts/query.py), which, as the name states, retrieves from [Evolve](https://evolve.elsevier.com/cs/login) a list of research papers that match the config parameters in the UI (\*Todo : Insert Image of UI\*).
+
+## Graphics
+
+Todo : Rest of this
+
 # This file may be used to create an environment using:
 # $ conda create --name <env> --file <this file>
 # platform: osx-64
