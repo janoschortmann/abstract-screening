@@ -3,12 +3,12 @@
 Main file setting up the UI.
 
 @author  Thomas Gauthier
-@version 0.0
+@version 0.1
 """
 import sys
 
-from PySide6.QtWidgets import QApplication, QMainWindow, uic
-from typing import Self
+from PySide6.QtWidgets import QApplication, QMainWindow
+from typing import Final, Self, final
 
 from python.src.utils.files import File
 
@@ -22,10 +22,10 @@ if sys.version_info > (3, 12):
                 Global Constants
 --------------------------------------------------
 """
-APPLICATION_NAME: str = "Abstract Screening"
-APPLICATION_UI:   str = "./ui/mainwindow.ui"
+APPLICATION_NAME: Final[str] = "Abstract Screening"
+APPLICATION_UI:   Final[str] = "./ui/mainwindow.ui"
 
-VIEW_OPTIONS: list[str] = [
+VIEW_OPTIONS: Final[list[str]] = [
     "Marked",
     "Unmarked",
     "Accepted",
@@ -38,6 +38,7 @@ Main window containing the UI and setting up the signals.
 @author  Thomas Gauthier
 @version 0.0
 """
+@final
 class MainWindow(QMainWindow):
     # The initializer of the window.
     # Will search for the XML file from the constant APPLICATION_UI
@@ -53,4 +54,4 @@ class MainWindow(QMainWindow):
 if __name__ == "__main__":
     app  = QApplication([])
     main = MainWindow()
-    app.exec()
+    app.exec_()

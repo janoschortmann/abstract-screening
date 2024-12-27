@@ -1,0 +1,8 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <qresource prefix="/">
+    <file>resources/delete.png</file>
+    <file>resources/green_checkmark.png</file>
+    <file>resources/grey_bar.png</file>
+  </qresource>
+</RCC>
