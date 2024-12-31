@@ -9,15 +9,25 @@ which shows each paper. Another example would be the Operating Characteristic Cu
 @author  Thomas Gauthier
 @version 0.0
 """
-from PySide6.QtCore import QAbstractTableModel, QIcon, QModelIndex, QModelRoleData, Qt
+from multiprocessing   import Pool, Lock
+from pyqtgraph         import PlotWidget, mkPen, QtGui
+from PySide6.QtCore    import (
+                                QAbstractTableModel,
+                                QIcon,
+                                QModelIndex,
+                                QModelRoleData,
+                                Qt
+                              )
 from PySide6.QtWidgets import QWidget, QTableView, QVBoxLayout
-from typing import Any, Callable, Final, Self, final
+from scipy.stats       import binom
+from typing            import Any, Callable, Final, Self, final
 
 from ...python.src.utils.files import Paper
 from ...python.src.utils.functions import clear_empty, transform_as_dict, unique
 from ..resources_loader import *
 
 import datetime as dt
+import numpy as np
 import re
 
 # Aliases
@@ -36,6 +46,7 @@ When an element is clicked, it will cycle through the possible labels.
 @author  Thomas Gauthier
 @version 0.0
 """
+# Fixme : If needed, change the data to a numpy array if it's too slow
 @final
 class PaperModel[T](QAbstractTableModel):
     # An ordered tuple of the data shown
@@ -122,8 +133,9 @@ class PaperModel[T](QAbstractTableModel):
         return inner
 
     # Will update the showing data. Used when the real data has changed
+    # Todo : Add asynchronous task to this
     def update_showing(self: Self) -> None:
-        self.__viewing = []
+        self.__viewing: list[T] = []
 
         for paper in self.__data:
             # Could be boxed in another function, depending on future requirements
@@ -207,15 +219,15 @@ class PaperView[T](QWidget):
     def __init__[**P](self: Self, data: list[T], *args: P.args) -> None:
         # Default initialization
         super().__init__(self, *args)
-        self.table_view = QTableView()
-        self.model      = PaperModel(data)
+        self.table_view: QTableView     = QTableView()
+        self.model: PaperModel          = PaperModel(data)
 
         # Callbacks
         self.table_view.setModel(self.model)
         self.table_view.clicked.connect(self.model.on_clicked)
 
         # Connecting
-        layout = QVBoxLayout(self)
+        layout: QWidget = QVBoxLayout(self)
         layout.addLayout(self.table_view)
         self.setLayout(layout)
 
@@ -250,3 +262,169 @@ class PaperView[T](QWidget):
         ]
         clear_empty(every)
         self.model.add_criterias(every)
+
+"""
+Basic graph using pyqtgraph as instructed in the manual.
+
+It draws the operating characteristic curve based on the parameters
+and a few lines to represent them.
+
+@author  Thomas Gauthier
+@version 0.0
+"""
+@final
+class OperatingCurve(QWidget):
+    # Number of points shown
+    """
+    Todo : If necessary, change this to be a constant based on the maximal width of the screens
+    Such as, for example (Java PseudoCode):
+    final int points = Math.round(screens.stream().map(screen::getWidth).max() * CONSTANT);
+    Or something as such
+    """
+    POINTS:     Final[int]   = 500
+    # Threshold to stop the search for the nc parameters. Will throw an exception pass that point
+    THRESHOLD:  Final[int]   = 1000
+    # Number of processes in the pool
+    POOL_COUNT: Final[int]   = 4
+
+    # Default initializer that only set the basic themes
+    def __init__(self: Self) -> None:
+        # Plot theme
+        self.plot: PlotWidget = PlotWidget()
+        self.pen:  QtGui.QPen = mkPen(color = 'b', width = 5, style = Qt.PenStyle.SolidLine)
+
+        self.plot.setBackground('w')
+        self.plot.plotItem.setLabel("left", "Probability of acceptance")
+        self.plot.plotItem.setLabel("bottom", "Fraction defective")
+
+        # Layout
+        layout = QVBoxLayout(self)
+        layout.addLayout(self.plot)
+        self.setLayout(layout)
+
+    # Setter for the attributes of the characteristic function
+    def set_attributes(
+                        self: Self,
+                        alpha:  float,
+                        beta:   float,
+                        param1: float,
+                        param2: float
+                      ) -> None:
+        self.alpha:  float = alpha
+        self.beta:   float = beta
+        self.param1: float = param1
+        self.param2: float = param2
+
+    """
+    Default method used to plot the Operating curve.
+
+    Note that there is a constant number of points, since recalculating
+    some lot of given points each time the window is resized gets expensive pretty quickly.
+
+    Note that the amount of points plotted follows the resolution of the biggest screen.
+    """
+    def plot(self: Self) -> None:
+        # Assuming that the self.nc variables is not None
+        if self.nc is None:
+            raise TypeError("The N and C parameters do not exist")
+
+        p_values: np.ndarray[np.floating[Any]] = np.linspace(0, 0.5, OperatingCurve.POINTS)
+        probabilities: list[float] = [OperatingCurve.probability_of_acceptance(self.nc[0], self.nc[1], p) for p in p_values]
+
+        # Plotting the function and the lines
+        self.plot.plotItem.plot(p_values, probabilities, pen=self.pen)
+        self.plot.plotItem.addLegend()
+
+        # Lines representing the current values used
+        producer: float = 1 - self.alpha
+        self.plot.plotItem.addLine(
+                                    name = "Producer: 1 - alpha (" + str(producer) + ')',
+                                    y = producer,
+                                    pen = mkPen(hsv = (20, 85, 95), width = 0.5, style = Qt.PenStyle.DashLine)
+                                  )
+
+        self.plot.plotItem.addLine(
+                                    name = "Consumer: beta (" + str(self.beta) + ')',
+                                    y = self.beta,
+                                    pen = mkPen(color = 'b', width = 0.5, style = Qt.PenStyle.DashLine)
+                                  )
+
+        self.plot.plotItem.addLine(
+                                    name = "Parameter 1: " + str(self.param1),
+                                    x = self.param1,
+                                    pen = mkPen(color = 'g', width = 0.5, style = Qt.PenStyle.DashLine)
+                                  )
+
+        self.plot.plotItem.addLine(
+                                    name = "Parameter 2: " + str(self.param2),
+                                    x = self.param2,
+                                    pen = mkPen(color = 'r', width = 0.5, style = Qt.PenStyle.DashLine)
+                                  )
+
+        # Other formatting
+        self.plot.plotItem.showGrid(x = True, y = True)
+        self.plot.plotItem.legend.addItem(None, "Number of samples: " + str(self.nc[0]))
+        self.plot.plotItem.legend.addItem(None, "Minimal number of acceptance: " + str(self.nc[1]))
+
+    """
+    Method used to find the number of sample required and the
+    minimum count so that the batch will be accepted.
+
+    Note that there does not exist an explicit (as far as I know) formula
+    for the nc parameters since they are distributed in a
+    [hypergeometric distribution](https://en.wikipedia.org/wiki/Hypergeometric_distribution).
+    Hence, why the brute force approach.
+
+    For more information on this method, please consult the requirements file.
+    """
+    def find_nc(self: Self) -> None:
+        lock: Any = Lock()
+
+        # Inner function used by the instances of the pool
+        # In most cases, it will find the smallest result
+        # And the trade for speed is worth the while
+        def inner(pool: Any, initial: int) -> None:
+            counter: int = initial
+
+            while counter <= OperatingCurve.THRESHOLD:
+                for c in range(counter):
+                    # Calculate producer's risk
+                    producer: float = sum([binom.pmf(k, counter, self.param1) for k in range(c + 1)])
+                    # Calculate consumer's risk
+                    consumer: float = sum([binom.pmf(k, counter, self.param2) for k in range(c + 1)])
+
+                    if producer >= 1 - self.alpha and consumer <= self.beta:
+                        # If two results are possible, lock one for the pool to terminate
+                        lock.acquire()
+                        self.nc = [counter, c]
+                        pool.terminate()
+
+                    counter += OperatingCurve.POOL_COUNT
+
+        with Pool(OperatingCurve.POOL_COUNT) as pool:
+            for i in range(1, OperatingCurve.POOL_COUNT):
+                pool.apply(inner, args = (pool, i))
+
+        lock.release()
+
+    """
+    Linear method of find_nc. For more information, go see find_nc.
+
+    This method is deprecated.
+    """
+    def linear_find_nc(self: Self) -> None:
+        for n in range(1, OperatingCurve.THRESHOLD):
+            for c in range(n):
+                # Calculate producer's risk
+                producer: float = sum([binom.pmf(k, n, self.param1) for k in range(c + 1)])
+                # Calculate consumer's risk
+                consumer: float = sum([binom.pmf(k, n, self.param2) for k in range(c + 1)])
+
+                if producer >= 1 - self.alpha and consumer <= self.beta:
+                    self.nc = [n, c]
+                    return
+
+    # Method used to get the points
+    @staticmethod
+    def probability_of_acceptance(n: int, c: int, p: float) -> float:
+        return sum([binom.pmf(k, n, p) for k in range(c + 1)])
