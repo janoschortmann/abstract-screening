@@ -7,7 +7,7 @@ But doesn't hold any classes or anything relating to a specific field.
 @version 0.0
 """
 
-from typing import Callable, Iterable
+from typing import Any, Callable, Iterable
 
 """
 Will modify the list given as argument to have unique elements inside,
@@ -68,3 +68,42 @@ def transform_as_dict[T, Q](collection: dict[T, Q] | list[Q], mapper: Callable[[
     if isinstance(collection, dict):
         return collection
     return dict.fromkeys(map(lambda key: mapper(key), collection), collection)
+
+"""
+A useful function that will make a dictionary based on a list of
+unique values as keys and map them (with the mapper) to their values.
+
+@author  Thomas Gauthier
+@version 0.0
+"""
+def mkdict[T, Q](keys: Iterable[T], mapper: Callable[[T], Q]) -> dict[T, Q]:
+    dic: dict[T, Q] = {}
+
+    for item in keys:
+        if dic[item] is not None:
+            raise Exception("Duplicate values in iterable")
+        else:
+            dic[item] = mapper(item)
+
+    return dic
+
+"""
+Combines an iterable of unique keys to their respective values
+in the iterable as a dictionary.
+
+@author  Thomas Gauthier
+@version 0.0
+"""
+def cbdict[T, Q](keys: Iterable[T], values: Iterable[Q]) -> dict[T, Q]:
+    if len(keys) != len(values):
+        raise Exception("The iterables are different in lenght")
+
+    values_iter: Any = iter(values)
+    dic:  dict[T, Q] = {}
+    for item in keys:
+        if dic[item] is not None:
+            raise Exception("Duplicate values in iterable")
+        else:
+            dic[item] = next(values_iter)
+
+    return dic

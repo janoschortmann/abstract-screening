@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>Form</class>
- <widget class="QWidget" name="Form">
+ <class>mainwindow</class>
+ <widget class="QWidget" name="mainwindow">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Form</string>
+   <string>Paper List Window</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
@@ -97,7 +97,7 @@
        <item>
         <widget class="QLineEdit" name="path">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
@@ -111,7 +111,7 @@
          <property name="maximumSize">
           <size>
            <width>16777215</width>
-           <height>50</height>
+           <height>16777215</height>
           </size>
          </property>
          <property name="frame">
@@ -124,6 +124,12 @@
        </item>
        <item>
         <widget class="QPushButton" name="add_button">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
          <property name="minimumSize">
           <size>
            <width>0</width>
@@ -133,7 +139,7 @@
          <property name="maximumSize">
           <size>
            <width>100</width>
-           <height>50</height>
+           <height>16777215</height>
           </size>
          </property>
          <property name="autoFillBackground">
@@ -150,6 +156,12 @@ font-color: white;</string>
        </item>
        <item>
         <widget class="QPushButton" name="remove_button">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
          <property name="minimumSize">
           <size>
            <width>0</width>
@@ -159,7 +171,7 @@ font-color: white;</string>
          <property name="maximumSize">
           <size>
            <width>100</width>
-           <height>50</height>
+           <height>16777215</height>
           </size>
          </property>
          <property name="autoFillBackground">

@@ -23,7 +23,7 @@ from scipy.stats       import binom
 from typing            import Any, Callable, Final, Self, final
 
 from ...python.src.utils.files import Paper
-from ...python.src.utils.functions import clear_empty, transform_as_dict, unique
+from ...python.src.utils.functions import clear_empty, transform_as_dict, unique, cbdict
 from ..resources_loader import *
 
 import datetime as dt
@@ -46,12 +46,14 @@ When an element is clicked, it will cycle through the possible labels.
 @author  Thomas Gauthier
 @version 0.0
 """
-# Fixme : If needed, change the data to a numpy array if it's too slow
+# FIXME : If needed, change the data to a numpy array if it's too slow
 @final
 class PaperModel[T](QAbstractTableModel):
     # An ordered tuple of the data shown
-    column_order: tuple[str] = ("Title", "Journal", "Date", "DOI", "Label")
-    column_size: Final[int] = len(column_order)
+    column_order:   tuple[str] = ("Title", "Journal", "Date", "DOI", "Label")
+    # Maps the column name with the variable name in the Paper class
+    column_map: dict[str, str] = cbdict(column_order, ("title", "jour", "date", "doi", "label"))
+    column_size:    Final[int] = len(column_order)
 
     dict_images: Final[dict[int, QIcon]] = {
         0: QIcon(":/resources/grey_bar.png"),
@@ -67,6 +69,7 @@ class PaperModel[T](QAbstractTableModel):
     a significant runtime cost depending on its application.
     """
     def __init__(self: Self, data: list[T]) -> None:
+        self.__init__()
         if not isinstance(T, Paper):
             raise TypeError("T is not from the Paper class")
 
@@ -91,7 +94,7 @@ class PaperModel[T](QAbstractTableModel):
         return len(self.__viewing[0])
 
     # Shows the column names/row names
-    def headerData(self: Self, section: int, orientation: Qt.Orientation, role: data_role) -> None:
+    def headerData(self: Self, section: int, orientation: Qt.Orientation, role: data_role) -> str:
         if role == data_role.DisplayRole and orientation == Qt.Orientation.Horizontal:
             return PaperModel.column_order[section]
 
@@ -110,13 +113,9 @@ class PaperModel[T](QAbstractTableModel):
 
         # More modulable if the tuple changes
         if role == data_role.DisplayRole and not label_column:
-            column_name: str = PaperModel.column_order[index.column()]
-
-            # Fixme : If it takes too much time to load, change this to not have introspection
+            # FIXME : If it takes too much time to load, change this to not have introspection
             # This was done to be more modulable, but isn't strictly necessary
-            for name in PaperModel.column_order:
-                if column_name == name:
-                    return vars(selected_paper)[name]
+            return str(vars(selected_paper)[PaperModel.column_map[PaperModel.column_order[index.column()]]])
 
 
         if role == data_role.DecorationRole and label_column:
@@ -211,6 +210,8 @@ class PaperModel[T](QAbstractTableModel):
 """
 Basic implementation of the PaperModel as a TableView.
 
+The argument T must be an instance of the Paper class.
+
 @author  Thomas Gauthier
 @version 0.0
 """
@@ -264,6 +265,82 @@ class PaperView[T](QWidget):
         self.model.add_criterias(every)
 
 """
+Class used to represent the papers that will be selected based on the threshold
+and shows the probability of acceptance based on the model selected.
+
+This is used when the model is accepted and the user wants to know quickly which ones
+were accepted.
+
+The T argument is only a class that inherits from the Paper class.
+
+Note that since this reveives all the papers that were accepted, this implies
+that this model does not update like the PaperModel.
+
+@author  Thomas Gauthier
+@version 0.0
+"""
+@final
+class ProbabilityModel[T](QAbstractTableModel):
+    column_order:     tuple[str] = ("Title", "Journal", "Date", "DOI", "Probability")
+    column_map:   dict[str, str] = cbdict(column_order, ("title", "jour", "date", "doi", "prob"))
+    column_size:      Final[int] = len(column_order)
+
+    # Default constuctor that sets the data received
+    def __init__(self: Self, data: list[T]) -> None:
+        super().__init__()
+        if not isinstance(T, Paper):
+            raise TypeError("T does not inherit from the Paper class")
+
+        if data and vars(data[0])['prob'] is None:
+            raise ValueError("The paper model does not have probabilities")
+
+        self.__data = data
+
+    # Returns the row count
+    def rowCount(self: Self) -> int:
+        ProbabilityModel.column_size
+
+    # Returns the number of elements
+    def columnCount(self: Self) -> int:
+        return len(self.__data)
+
+    # Returns the header data based on the column order
+    def headerData(self: Self, section: int, orientation: Qt.Orientation, role: data_role) -> str:
+        if role == data_role.DisplayRole and orientation == Qt.Orientation.Horizontal:
+                    return PaperModel.column_order[section]
+
+    # Returns the given data based on the index as centered
+    def data(self: Self, index: QModelIndex, role: data_role) -> Any:
+        if role == data_role.TextAlignmentRole:
+            return align_flags.AlignCenter
+
+        if role == data_role.DisplayRole:
+            return str(vars(self.__data[index.row()])[ProbabilityModel.column_map[ProbabilityModel.column_order[index.column()]]])
+
+"""
+Basic implementation of the ProbabilityModel in a TableView.
+
+Note that T must be an instance of the Paper class.
+
+@author  Thomas Gauthier
+@version 0.0
+"""
+@final
+class ProbabilityView[T](QWidget):
+    # Default constructor that will receive the data
+    def __init__[**P](self: Self, data: list[T], *args: P.args) -> None:
+        # Default initialization
+        super().__init__(self, *args)
+        self.table_view: QTableView     = QTableView()
+        self.model: PaperModel          = ProbabilityModel(data)
+        self.table_view.setModel(self.model)
+
+        # Connecting
+        layout: QWidget = QVBoxLayout(self)
+        layout.addLayout(self.table_view)
+        self.setLayout(layout)
+
+"""
 Basic graph using pyqtgraph as instructed in the manual.
 
 It draws the operating characteristic curve based on the parameters
@@ -289,6 +366,7 @@ class OperatingCurve(QWidget):
 
     # Default initializer that only set the basic themes
     def __init__(self: Self) -> None:
+        super().__init__()
         # Plot theme
         self.plot: PlotWidget = PlotWidget()
         self.pen:  QtGui.QPen = mkPen(color = 'b', width = 5, style = Qt.PenStyle.SolidLine)

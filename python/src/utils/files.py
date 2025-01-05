@@ -28,14 +28,16 @@ class Paper(object):
     def __init__(
                 self: Self,
                 title: str,
+                jour: str,
                 date: dt.date,
-                directory: str,
+                dire: str,
                 doi: str | None = None,
                 label: int | None = None
                 ) -> None:
         self.title:     str = title
+        self.jour:      str = jour
         self.date:  dt.date = date
-        self.directory: str = directory
+        self.dire:      str = dire
         self.doi:       str = doi
         self.label:     int = label
 
@@ -51,6 +53,12 @@ class Paper(object):
     """
     def accept(self: Self) -> None:
         self.label = 1
+
+    """
+    A private function that will assign the probability of acceptance of a certain paper.
+    """
+    def assign(self: Self, prob: float) -> None:
+        self.prob = prob
 
     """
     Changes the state of the label to "2"
