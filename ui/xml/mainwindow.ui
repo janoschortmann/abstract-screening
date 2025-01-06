@@ -75,6 +75,22 @@
         </widget>
        </item>
        <item>
+        <widget class="QPushButton" name="find">
+         <property name="minimumSize">
+          <size>
+           <width>80</width>
+           <height>35</height>
+          </size>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">border: 0px solid grey;</string>
+         </property>
+         <property name="text">
+          <string>Find</string>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QPushButton" name="about">
          <property name="minimumSize">
           <size>

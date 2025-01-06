@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
-    <height>300</height>
+    <width>450</width>
+    <height>370</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -15,46 +15,59 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QWidget" name="widget" native="true">
+    <widget class="QWidget" name="horizontalWidget" native="true">
      <property name="styleSheet">
-      <string notr="true">border: 1px solid grey;</string>
+      <string notr="true"/>
      </property>
      <layout class="QHBoxLayout" name="top">
+      <property name="spacing">
+       <number>0</number>
+      </property>
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
       <item>
        <widget class="QPushButton" name="find">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
         <property name="minimumSize">
          <size>
-          <width>40</width>
-          <height>30</height>
+          <width>80</width>
+          <height>40</height>
          </size>
         </property>
-        <property name="maximumSize">
-         <size>
-          <width>50</width>
-          <height>16777215</height>
-         </size>
+        <property name="autoFillBackground">
+         <bool>false</bool>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">background-color: rgb(80, 80, 80);
+border: 1px solid grey;</string>
         </property>
         <property name="text">
-         <string/>
-        </property>
-        <property name="icon">
-         <iconset theme="QIcon::ThemeIcon::EditFind"/>
+         <string>Find</string>
         </property>
        </widget>
       </item>
       <item>
        <widget class="QLabel" name="abs_path">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>40</height>
+         </size>
         </property>
         <property name="maximumSize">
          <size>
@@ -66,14 +79,13 @@
          <font>
           <family>Open Sans</family>
           <pointsize>12</pointsize>
-          <bold>false</bold>
          </font>
         </property>
-        <property name="frameShape">
-         <enum>QFrame::Shape::NoFrame</enum>
+        <property name="styleSheet">
+         <string notr="true">border: 1px solid grey;</string>
         </property>
         <property name="text">
-         <string>Absolute Path</string>
+         <string>Complete List of Papers</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -119,6 +131,22 @@
          </property>
          <property name="placeholderText">
           <string>File or Directory</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QComboBox" name="specifier">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>80</width>
+           <height>0</height>
+          </size>
          </property>
         </widget>
        </item>

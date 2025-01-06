@@ -4,7 +4,7 @@ This file is used to declare useful/recurring structures in the project
 that concern file manipulation/objects referring to files.
 
 @author  Thomas Gauthier
-@version 0.2
+@version 0.3
 """
 
 from typing import Self
@@ -85,6 +85,14 @@ class Paper(object):
     """
     def reset(self: Self) -> None:
         self.label = 0
+
+    """
+    A static method used by the paper class for parsing a line.
+    For any class that inherits from this, this function must be reimplemented.
+    """
+    @staticmethod
+    def parse_line(line: str) -> ...:
+        pass
 
     """
     Basic hash funcion that returns the hash of this paper's title.
