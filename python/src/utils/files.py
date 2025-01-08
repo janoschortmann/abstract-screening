@@ -4,12 +4,14 @@ This file is used to declare useful/recurring structures in the project
 that concern file manipulation/objects referring to files.
 
 @author  Thomas Gauthier
-@version 0.3
+@version 0.4
 """
 
-from typing import Self
+from typing import Self, Final, NewType
 
 import datetime as dt
+
+type lab = str
 
 """
 A simple object class that has, as an objective, to only store information
@@ -21,9 +23,15 @@ This will be used, for example, to store all given papers in an array
 for reference when showing them in the TableView and/or when doing further queries.
 
 @author  Thomas Gauthier
-@version 0.2
+@version 0.3
 """
 class Paper(object):
+    # Could be done with enums, but there are a pain to work with in python...
+    LABELS: tuple[lab] = ("Unlabeled", "Accepted", "Rejected")
+
+    # The possibilities of a given button
+    POSSIBILITIES: tuple[lab] = ("Labeled") + LABELS
+
     # Default initializer
     def __init__(
                 self: Self,
@@ -32,59 +40,33 @@ class Paper(object):
                 date: dt.date,
                 dire: str,
                 doi: str | None = None,
-                label: int | None = None
+                label: str | None = LABELS[0]
                 ) -> None:
         self.title:     str = title
         self.jour:      str = jour
         self.date:  dt.date = date
         self.dire:      str = dire
         self.doi:       str = doi
-        self.label:     int = label
+        self.label:     str = label
 
     """
-    Changes the state of the label to "1"
-
-    Note that this could also be done with :
-        ref.label = 1
-
-    But this function is more meaningful
-
-    The overall cost will be minimal since this function won't be called often
+    Changes the state of the label to the one received.
     """
-    def accept(self: Self) -> None:
-        self.label = 1
+    def give(self: Self, label: lab) -> None:
+        if not label in Paper.LABELS: raise Exception("Not in possible Labels")
+        self.label: lab = label
+
+    """
+    Returns if a given label is labeled
+    """
+    def labeled(self: Self) -> bool:
+        return self.label != Paper.LABELS[0]
 
     """
     A private function that will assign the probability of acceptance of a certain paper.
     """
     def assign(self: Self, prob: float) -> None:
-        self.prob = prob
-
-    """
-    Changes the state of the label to "2"
-
-    Note that this could also be done with :
-        ref.label = 2
-
-    But this function is more meaningful
-
-    The overall cost will be minimal since this function won't be called often
-    """
-    def reject(self: Self) -> None:
-        self.label = 2
-
-    """
-    Changes the state of the label to 0"
-
-    Note that this could also be done with :
-        ref.label = 0
-
-    But this function is more meaningful
-
-    The overall cost will be minimal since this function won't be called often
-    """
-    def reset(self: Self) -> None:
-        self.label = 0
+        self.prob: float = prob
 
     """
     A static method used by the paper class for parsing a line.
@@ -92,7 +74,7 @@ class Paper(object):
     """
     @staticmethod
     def parse_line(line: str) -> ...:
-        pass
+        pass # Todo
 
     """
     Basic hash funcion that returns the hash of this paper's title.

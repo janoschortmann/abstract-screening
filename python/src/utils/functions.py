@@ -36,8 +36,6 @@ def unique[T](collection: list[T]) -> None:
             index += 1
             current = collection[index]
 
-# Todo : Do the unique function for arbitrary collections
-
 """
 A function that will clear each instance that is considered as
 empty inside the iterable.
@@ -80,10 +78,8 @@ def mkdict[T, Q](keys: Iterable[T], mapper: Callable[[T], Q]) -> dict[T, Q]:
     dic: dict[T, Q] = {}
 
     for item in keys:
-        if dic[item] is not None:
-            raise Exception("Duplicate values in iterable")
-        else:
-            dic[item] = mapper(item)
+        if dic[item] is not None: raise Exception("Duplicate values in iterable")
+        else: dic[item] = mapper(item)
 
     return dic
 
@@ -101,9 +97,23 @@ def cbdict[T, Q](keys: Iterable[T], values: Iterable[Q]) -> dict[T, Q]:
     values_iter: Any = iter(values)
     dic:  dict[T, Q] = {}
     for item in keys:
-        if dic[item] is not None:
-            raise Exception("Duplicate values in iterable")
-        else:
-            dic[item] = next(values_iter)
+        if dic[item] is not None: raise Exception("Duplicate values in iterable")
+        else: dic[item] = next(values_iter)
 
     return dic
+
+"""
+Basic factory for toggling windows.
+
+@author  Thomas Gauthier
+@version 0.0
+"""
+from PySide6.QtWidgets import QWidget
+def toggler(window: QWidget) -> Callable[..., None]:
+    activated: bool = False
+    def inner() -> None:
+        nonlocal activated, window
+        if activated: window.hide()
+        else: window.show()
+        activated = not activated
+    return inner

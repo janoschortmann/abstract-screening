@@ -24,6 +24,11 @@ class Ui_mainwindow(object):
         if not mainwindow.objectName():
             mainwindow.setObjectName(u"mainwindow")
         mainwindow.resize(700, 500)
+        sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(mainwindow.sizePolicy().hasHeightForWidth())
+        mainwindow.setSizePolicy(sizePolicy)
         self.centralwidget = QWidget(mainwindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.verticalLayout = QVBoxLayout(self.centralwidget)
@@ -50,13 +55,6 @@ class Ui_mainwindow(object):
 
         self.top.addWidget(self.data)
 
-        self.find = QPushButton(self.info)
-        self.find.setObjectName(u"find")
-        self.find.setMinimumSize(QSize(80, 35))
-        self.find.setStyleSheet(u"border: 0px solid grey;")
-
-        self.top.addWidget(self.find)
-
         self.about = QPushButton(self.info)
         self.about.setObjectName(u"about")
         self.about.setMinimumSize(QSize(80, 35))
@@ -69,6 +67,15 @@ class Ui_mainwindow(object):
 
         self.top.addItem(self.filler)
 
+        self.other_but = QWidget(self.info)
+        self.other_but.setObjectName(u"other_but")
+        self.horizontalLayout = QHBoxLayout(self.other_but)
+        self.horizontalLayout.setSpacing(0)
+        self.horizontalLayout.setObjectName(u"horizontalLayout")
+        self.horizontalLayout.setContentsMargins(0, -1, 0, -1)
+
+        self.top.addWidget(self.other_but)
+
 
         self.verticalLayout.addWidget(self.info)
 
@@ -77,9 +84,6 @@ class Ui_mainwindow(object):
         self.body.setOrientation(Qt.Orientation.Vertical)
         self.display = QWidget(self.body)
         self.display.setObjectName(u"display")
-        sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.display.sizePolicy().hasHeightForWidth())
         self.display.setSizePolicy(sizePolicy)
         self.body.addWidget(self.display)
@@ -149,7 +153,6 @@ class Ui_mainwindow(object):
         mainwindow.setWindowTitle(QCoreApplication.translate("mainwindow", u"Comprehensive Abstsract Screening", None))
         self.params.setText(QCoreApplication.translate("mainwindow", u"Params", None))
         self.data.setText(QCoreApplication.translate("mainwindow", u"Data", None))
-        self.find.setText(QCoreApplication.translate("mainwindow", u"Find", None))
         self.about.setText(QCoreApplication.translate("mainwindow", u"About", None))
         self.step_lab.setText(QCoreApplication.translate("mainwindow", u"Step #1", None))
         self.next.setText(QCoreApplication.translate("mainwindow", u"Next", None))
