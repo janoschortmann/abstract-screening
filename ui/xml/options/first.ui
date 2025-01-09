@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>650</width>
-    <height>235</height>
+    <height>240</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -237,7 +237,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="find">
+         <widget class="QPushButton" name="find_but">
           <property name="maximumSize">
            <size>
             <width>16777215</width>
@@ -277,54 +277,6 @@
            <string>Remove</string>
           </property>
          </widget>
-        </item>
-       </layout>
-      </widget>
-     </item>
-     <item>
-      <widget class="QWidget" name="showing" native="true">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="styleSheet">
-        <string notr="true">border: 1px solid grey;</string>
-       </property>
-       <layout class="QHBoxLayout" name="showing_frame">
-        <property name="spacing">
-         <number>20</number>
-        </property>
-        <item>
-         <widget class="QLabel" name="showing_lab">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>100</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>12</pointsize>
-           </font>
-          </property>
-          <property name="styleSheet">
-           <string notr="true">border: 0px solid white;</string>
-          </property>
-          <property name="text">
-           <string>Showing :</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QComboBox" name="showing_box"/>
         </item>
        </layout>
       </widget>

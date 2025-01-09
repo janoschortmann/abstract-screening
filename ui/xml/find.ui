@@ -293,7 +293,7 @@
       </widget>
      </item>
      <item row="2" column="3">
-      <widget class="QPushButton" name="find">
+      <widget class="QPushButton" name="find_but">
        <property name="styleSheet">
         <string notr="true">background-color: rgb(115, 255, 115);</string>
        </property>

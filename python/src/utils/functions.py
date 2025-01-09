@@ -4,10 +4,11 @@ File containing all sorts of useful functions,
 But doesn't hold any classes or anything relating to a specific field.
 
 @author  Thomas Gauthier
-@version 0.0
+@version 0.1
 """
-
-from typing import Any, Callable, Iterable
+from ctypes    import _Pointer, pointer # Bad practice, but needed
+from threading import Lock
+from typing    import Any, Callable, Self, Iterable
 
 """
 Will modify the list given as argument to have unique elements inside,
@@ -117,3 +118,38 @@ def toggler(window: QWidget) -> Callable[..., None]:
         else: window.show()
         activated = not activated
     return inner
+
+"""
+A class representing an atomic pointer.
+
+@author  Thomas Gauthier
+@version 0.0
+"""
+class _AtomicInstance[T](object):
+    @property.getter
+    def val(self) -> T:
+        self.lock.acquire()
+        ref: T = self.val.contents
+        self.lock.release()
+        return ref
+
+    @property.setter
+    def val(self, other: T) -> None:
+        temp: T = other # Forces it to be a lvalue
+        self.lock.acquire()
+        self.val = pointer(temp)
+        self.lock.release()
+        # Temp will then only be accessed by the pointer
+        # That means that it does not really matter whether
+        # The given instance was a rvalue or a lvalue (or glvalue, or etc...)
+
+    # Default initializer
+    def __init__(self: Self, val: T) -> None:
+        self.lock:    Lock = Lock()
+        self.val: _Pointer = val
+
+# Factory method for returning an atomic of the instance
+def atomic[T](instance: T) -> _AtomicInstance[T]:
+    return _AtomicInstance(instance)
+
+del _AtomicInstance

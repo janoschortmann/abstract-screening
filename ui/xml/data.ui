@@ -36,7 +36,7 @@
        <number>0</number>
       </property>
       <item>
-       <widget class="QPushButton" name="find">
+       <widget class="QPushButton" name="find_but">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
           <horstretch>0</horstretch>

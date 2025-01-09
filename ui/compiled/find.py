@@ -195,11 +195,11 @@ class Ui_mainwindow(object):
 
         self.select_grid.addWidget(self.col_5, 2, 1, 1, 1)
 
-        self.find = QPushButton(mainwindow)
-        self.find.setObjectName(u"find")
-        self.find.setStyleSheet(u"background-color: rgb(115, 255, 115);")
+        self.find_but = QPushButton(mainwindow)
+        self.find_but.setObjectName(u"find_but")
+        self.find_but.setStyleSheet(u"background-color: rgb(115, 255, 115);")
 
-        self.select_grid.addWidget(self.find, 2, 3, 1, 1)
+        self.select_grid.addWidget(self.find_but, 2, 3, 1, 1)
 
         self.clear_edits = QPushButton(mainwindow)
         self.clear_edits.setObjectName(u"clear_edits")
@@ -255,7 +255,7 @@ class Ui_mainwindow(object):
         self.to_lab.setText(QCoreApplication.translate("mainwindow", u"To:", None))
         self.date.setText(QCoreApplication.translate("mainwindow", u"Date", None))
         self.col_5.setText(QCoreApplication.translate("mainwindow", u":", None))
-        self.find.setText(QCoreApplication.translate("mainwindow", u"Find", None))
+        self.find_but.setText(QCoreApplication.translate("mainwindow", u"Find", None))
         self.clear_edits.setText(QCoreApplication.translate("mainwindow", u"Clear All", None))
         self.clear_search.setText(QCoreApplication.translate("mainwindow", u"Remove from search", None))
     # retranslateUi

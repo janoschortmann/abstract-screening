@@ -34,19 +34,19 @@ class Ui_mainwindow(object):
         self.top.setSpacing(0)
         self.top.setObjectName(u"top")
         self.top.setContentsMargins(0, 0, 0, 0)
-        self.find = QPushButton(self.horizontalWidget)
-        self.find.setObjectName(u"find")
+        self.find_but = QPushButton(self.horizontalWidget)
+        self.find_but.setObjectName(u"find_but")
         sizePolicy = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.find.sizePolicy().hasHeightForWidth())
-        self.find.setSizePolicy(sizePolicy)
-        self.find.setMinimumSize(QSize(80, 40))
-        self.find.setAutoFillBackground(False)
-        self.find.setStyleSheet(u"background-color: rgb(80, 80, 80);\n"
+        sizePolicy.setHeightForWidth(self.find_but.sizePolicy().hasHeightForWidth())
+        self.find_but.setSizePolicy(sizePolicy)
+        self.find_but.setMinimumSize(QSize(80, 40))
+        self.find_but.setAutoFillBackground(False)
+        self.find_but.setStyleSheet(u"background-color: rgb(80, 80, 80);\n"
 "border: 1px solid grey;")
 
-        self.top.addWidget(self.find)
+        self.top.addWidget(self.find_but)
 
         self.abs_path = QLabel(self.horizontalWidget)
         self.abs_path.setObjectName(u"abs_path")
@@ -139,8 +139,8 @@ class Ui_mainwindow(object):
 
     def retranslateUi(self, mainwindow):
         mainwindow.setWindowTitle(QCoreApplication.translate("mainwindow", u"Paper List Window", None))
-        self.find.setText(QCoreApplication.translate("mainwindow", u"Find", None))
-        self.abs_path.setText(QCoreApplication.translate("mainwindow", u"Absolute Path", None))
+        self.find_but.setText(QCoreApplication.translate("mainwindow", u"Find", None))
+        self.abs_path.setText(QCoreApplication.translate("mainwindow", u"Complete List of Papers", None))
         self.path.setPlaceholderText(QCoreApplication.translate("mainwindow", u"File or Directory", None))
         self.add_button.setText(QCoreApplication.translate("mainwindow", u"Add", None))
         self.remove_button.setText(QCoreApplication.translate("mainwindow", u"Remove", None))

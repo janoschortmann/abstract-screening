@@ -15,15 +15,15 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QFont, QFontDatabase, QGradient, QIcon,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QApplication, QComboBox, QGridLayout, QHBoxLayout,
-    QLabel, QLayout, QLineEdit, QPushButton,
-    QSizePolicy, QTextEdit, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QGridLayout, QHBoxLayout, QLabel,
+    QLayout, QLineEdit, QPushButton, QSizePolicy,
+    QTextEdit, QVBoxLayout, QWidget)
 
 class Ui_first_option(object):
     def setupUi(self, first_option):
         if not first_option.objectName():
             first_option.setObjectName(u"first_option")
-        first_option.resize(650, 235)
+        first_option.resize(650, 240)
         self.horizontalLayout = QHBoxLayout(first_option)
         self.horizontalLayout.setSpacing(15)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
@@ -152,13 +152,13 @@ class Ui_first_option(object):
 
         self.buttons.addWidget(self.add)
 
-        self.find = QPushButton(self.query_buttons)
-        self.find.setObjectName(u"find")
-        self.find.setMaximumSize(QSize(16777215, 16777215))
-        self.find.setFont(font1)
-        self.find.setStyleSheet(u"background-color: rgb(210, 160, 160);")
+        self.find_but = QPushButton(self.query_buttons)
+        self.find_but.setObjectName(u"find_but")
+        self.find_but.setMaximumSize(QSize(16777215, 16777215))
+        self.find_but.setFont(font1)
+        self.find_but.setStyleSheet(u"background-color: rgb(210, 160, 160);")
 
-        self.buttons.addWidget(self.find)
+        self.buttons.addWidget(self.find_but)
 
         self.remove = QPushButton(self.query_buttons)
         self.remove.setObjectName(u"remove")
@@ -170,40 +170,6 @@ class Ui_first_option(object):
 
 
         self.variables.addWidget(self.query_buttons)
-
-        self.showing = QWidget(first_option)
-        self.showing.setObjectName(u"showing")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        sizePolicy1.setHorizontalStretch(0)
-        sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(self.showing.sizePolicy().hasHeightForWidth())
-        self.showing.setSizePolicy(sizePolicy1)
-        self.showing.setStyleSheet(u"border: 1px solid grey;")
-        self.showing_frame = QHBoxLayout(self.showing)
-        self.showing_frame.setSpacing(20)
-        self.showing_frame.setObjectName(u"showing_frame")
-        self.showing_lab = QLabel(self.showing)
-        self.showing_lab.setObjectName(u"showing_lab")
-        sizePolicy2 = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
-        sizePolicy2.setHorizontalStretch(0)
-        sizePolicy2.setVerticalStretch(0)
-        sizePolicy2.setHeightForWidth(self.showing_lab.sizePolicy().hasHeightForWidth())
-        self.showing_lab.setSizePolicy(sizePolicy2)
-        self.showing_lab.setMaximumSize(QSize(100, 16777215))
-        font2 = QFont()
-        font2.setPointSize(12)
-        self.showing_lab.setFont(font2)
-        self.showing_lab.setStyleSheet(u"border: 0px solid white;")
-
-        self.showing_frame.addWidget(self.showing_lab)
-
-        self.showing_box = QComboBox(self.showing)
-        self.showing_box.setObjectName(u"showing_box")
-
-        self.showing_frame.addWidget(self.showing_box)
-
-
-        self.variables.addWidget(self.showing)
 
 
         self.horizontalLayout.addLayout(self.variables)
@@ -230,8 +196,7 @@ class Ui_first_option(object):
         self.sample_lab.setText(QCoreApplication.translate("first_option", u"Sample Size", None))
         self.validation_lab.setText(QCoreApplication.translate("first_option", u"Validation Size", None))
         self.add.setText(QCoreApplication.translate("first_option", u"Add", None))
-        self.find.setText(QCoreApplication.translate("first_option", u"Find", None))
+        self.find_but.setText(QCoreApplication.translate("first_option", u"Find", None))
         self.remove.setText(QCoreApplication.translate("first_option", u"Remove", None))
-        self.showing_lab.setText(QCoreApplication.translate("first_option", u"Showing :", None))
     # retranslateUi
 
