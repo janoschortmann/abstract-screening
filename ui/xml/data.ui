@@ -100,7 +100,7 @@ border: 1px solid grey;</string>
      <property name="orientation">
       <enum>Qt::Orientation::Vertical</enum>
      </property>
-     <widget class="QTableView" name="papers"/>
+     <widget class="QTableView" name="__papers"/>
      <widget class="QWidget" name="horizontalLayoutWidget_2">
       <layout class="QHBoxLayout" name="bottom">
        <property name="sizeConstraint">
@@ -151,7 +151,7 @@ border: 1px solid grey;</string>
         </widget>
        </item>
        <item>
-        <widget class="QPushButton" name="add_button">
+        <widget class="QPushButton" name="add_but">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
            <horstretch>0</horstretch>
@@ -183,7 +183,7 @@ font-color: white;</string>
         </widget>
        </item>
        <item>
-        <widget class="QPushButton" name="remove_button">
+        <widget class="QPushButton" name="remove_but">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
            <horstretch>0</horstretch>

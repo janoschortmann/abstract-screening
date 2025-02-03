@@ -23,7 +23,7 @@ class Ui_mainwindow(object):
     def setupUi(self, mainwindow):
         if not mainwindow.objectName():
             mainwindow.setObjectName(u"mainwindow")
-        mainwindow.resize(350, 230)
+        mainwindow.resize(400, 300)
         self.verticalLayout = QVBoxLayout(mainwindow)
         self.verticalLayout.setSpacing(10)
         self.verticalLayout.setObjectName(u"verticalLayout")
@@ -53,79 +53,117 @@ class Ui_mainwindow(object):
         self.gridLayout.setObjectName(u"gridLayout")
         self.gridLayout.setSizeConstraint(QLayout.SizeConstraint.SetDefaultConstraint)
         self.gridLayout.setHorizontalSpacing(10)
-        self.token = QLabel(self.grid)
-        self.token.setObjectName(u"token")
+        self.col_5 = QLabel(self.grid)
+        self.col_5.setObjectName(u"col_5")
+        self.col_5.setStyleSheet(u"border: 0px solid grey;")
+
+        self.gridLayout.addWidget(self.col_5, 4, 1, 1, 1)
+
+        self.col_3 = QLabel(self.grid)
+        self.col_3.setObjectName(u"col_3")
+        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        sizePolicy1.setHorizontalStretch(0)
+        sizePolicy1.setVerticalStretch(0)
+        sizePolicy1.setHeightForWidth(self.col_3.sizePolicy().hasHeightForWidth())
+        self.col_3.setSizePolicy(sizePolicy1)
+        self.col_3.setStyleSheet(u"border: 0px solid black;")
+        self.col_3.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.gridLayout.addWidget(self.col_3, 0, 1, 1, 1)
+
+        self.api_lab = QLabel(self.grid)
+        self.api_lab.setObjectName(u"api_lab")
         font1 = QFont()
         font1.setFamilies([u"Open Sans"])
         font1.setPointSize(10)
         font1.setItalic(True)
-        self.token.setFont(font1)
-        self.token.setStyleSheet(u"border: 0px solid black;")
+        self.api_lab.setFont(font1)
+        self.api_lab.setStyleSheet(u"border: 0px solid black;")
 
-        self.gridLayout.addWidget(self.token, 2, 0, 1, 1)
+        self.gridLayout.addWidget(self.api_lab, 1, 0, 1, 1)
 
-        self.query_limit = QLabel(self.grid)
-        self.query_limit.setObjectName(u"query_limit")
-        self.query_limit.setFont(font1)
-        self.query_limit.setStyleSheet(u"border: 0px solid black;")
+        self.token_edit = QLineEdit(self.grid)
+        self.token_edit.setObjectName(u"token_edit")
 
-        self.gridLayout.addWidget(self.query_limit, 0, 0, 1, 1)
+        self.gridLayout.addWidget(self.token_edit, 2, 2, 1, 1)
 
-        self.col1 = QLabel(self.grid)
-        self.col1.setObjectName(u"col1")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        sizePolicy1.setHorizontalStretch(0)
-        sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(self.col1.sizePolicy().hasHeightForWidth())
-        self.col1.setSizePolicy(sizePolicy1)
-        self.col1.setStyleSheet(u"border: 0px solid black;")
-        self.col1.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.thr_edit = QLineEdit(self.grid)
+        self.thr_edit.setObjectName(u"thr_edit")
 
-        self.gridLayout.addWidget(self.col1, 2, 1, 1, 1)
+        self.gridLayout.addWidget(self.thr_edit, 3, 2, 1, 1)
 
-        self.api_key = QLabel(self.grid)
-        self.api_key.setObjectName(u"api_key")
-        self.api_key.setFont(font1)
-        self.api_key.setStyleSheet(u"border: 0px solid black;")
+        self.query_lab = QLabel(self.grid)
+        self.query_lab.setObjectName(u"query_lab")
+        self.query_lab.setFont(font1)
+        self.query_lab.setStyleSheet(u"border: 0px solid black;")
 
-        self.gridLayout.addWidget(self.api_key, 1, 0, 1, 1)
+        self.gridLayout.addWidget(self.query_lab, 0, 0, 1, 1)
 
-        self.col2 = QLabel(self.grid)
-        self.col2.setObjectName(u"col2")
-        sizePolicy1.setHeightForWidth(self.col2.sizePolicy().hasHeightForWidth())
-        self.col2.setSizePolicy(sizePolicy1)
-        self.col2.setStyleSheet(u"border: 0px solid black;")
-        self.col2.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.col_2 = QLabel(self.grid)
+        self.col_2.setObjectName(u"col_2")
+        sizePolicy1.setHeightForWidth(self.col_2.sizePolicy().hasHeightForWidth())
+        self.col_2.setSizePolicy(sizePolicy1)
+        self.col_2.setStyleSheet(u"border: 0px solid black;")
+        self.col_2.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.gridLayout.addWidget(self.col2, 1, 1, 1, 1)
+        self.gridLayout.addWidget(self.col_2, 1, 1, 1, 1)
 
-        self.query_input = QLineEdit(self.grid)
-        self.query_input.setObjectName(u"query_input")
+        self.query_edit = QLineEdit(self.grid)
+        self.query_edit.setObjectName(u"query_edit")
 
-        self.gridLayout.addWidget(self.query_input, 0, 2, 1, 1)
+        self.gridLayout.addWidget(self.query_edit, 0, 2, 1, 1)
 
-        self.api_input = QLineEdit(self.grid)
-        self.api_input.setObjectName(u"api_input")
+        self.api_edit = QLineEdit(self.grid)
+        self.api_edit.setObjectName(u"api_edit")
 
-        self.gridLayout.addWidget(self.api_input, 1, 2, 1, 1)
+        self.gridLayout.addWidget(self.api_edit, 1, 2, 1, 1)
 
-        self.token_input = QLineEdit(self.grid)
-        self.token_input.setObjectName(u"token_input")
+        self.thr_lab = QLabel(self.grid)
+        self.thr_lab.setObjectName(u"thr_lab")
+        self.thr_lab.setFont(font1)
+        self.thr_lab.setStyleSheet(u"border: 0px solid grey;")
 
-        self.gridLayout.addWidget(self.token_input, 2, 2, 1, 1)
+        self.gridLayout.addWidget(self.thr_lab, 3, 0, 1, 1)
 
-        self.col3 = QLabel(self.grid)
-        self.col3.setObjectName(u"col3")
-        sizePolicy1.setHeightForWidth(self.col3.sizePolicy().hasHeightForWidth())
-        self.col3.setSizePolicy(sizePolicy1)
-        self.col3.setStyleSheet(u"border: 0px solid black;")
-        self.col3.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.step_lab = QLabel(self.grid)
+        self.step_lab.setObjectName(u"step_lab")
+        self.step_lab.setFont(font1)
+        self.step_lab.setStyleSheet(u"border: 0px solid grey;")
 
-        self.gridLayout.addWidget(self.col3, 0, 1, 1, 1)
+        self.gridLayout.addWidget(self.step_lab, 4, 0, 1, 1)
+
+        self.col_4 = QLabel(self.grid)
+        self.col_4.setObjectName(u"col_4")
+        self.col_4.setStyleSheet(u"border: 0px solid grey;")
+
+        self.gridLayout.addWidget(self.col_4, 3, 1, 1, 1)
+
+        self.col_1 = QLabel(self.grid)
+        self.col_1.setObjectName(u"col_1")
+        sizePolicy1.setHeightForWidth(self.col_1.sizePolicy().hasHeightForWidth())
+        self.col_1.setSizePolicy(sizePolicy1)
+        self.col_1.setStyleSheet(u"border: 0px solid black;")
+        self.col_1.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.gridLayout.addWidget(self.col_1, 2, 1, 1, 1)
+
+        self.token_lab = QLabel(self.grid)
+        self.token_lab.setObjectName(u"token_lab")
+        self.token_lab.setFont(font1)
+        self.token_lab.setStyleSheet(u"border: 0px solid black;")
+
+        self.gridLayout.addWidget(self.token_lab, 2, 0, 1, 1)
+
+        self.step_edit = QLineEdit(self.grid)
+        self.step_edit.setObjectName(u"step_edit")
+
+        self.gridLayout.addWidget(self.step_edit, 4, 2, 1, 1)
 
         self.gridLayout.setRowMinimumHeight(0, 30)
         self.gridLayout.setRowMinimumHeight(1, 30)
         self.gridLayout.setRowMinimumHeight(2, 30)
+        self.gridLayout.setRowMinimumHeight(3, 30)
+        self.gridLayout.setRowMinimumHeight(4, 30)
 
         self.verticalLayout.addWidget(self.grid)
 
@@ -145,12 +183,16 @@ class Ui_mainwindow(object):
     def retranslateUi(self, mainwindow):
         mainwindow.setWindowTitle(QCoreApplication.translate("mainwindow", u"Query Info Window", None))
         self.personal_lab.setText(QCoreApplication.translate("mainwindow", u"Personal API Information", None))
-        self.token.setText(QCoreApplication.translate("mainwindow", u"Token", None))
-        self.query_limit.setText(QCoreApplication.translate("mainwindow", u"Query Limit", None))
-        self.col1.setText(QCoreApplication.translate("mainwindow", u":", None))
-        self.api_key.setText(QCoreApplication.translate("mainwindow", u"API Key", None))
-        self.col2.setText(QCoreApplication.translate("mainwindow", u":", None))
-        self.col3.setText(QCoreApplication.translate("mainwindow", u":", None))
+        self.col_5.setText(QCoreApplication.translate("mainwindow", u":", None))
+        self.col_3.setText(QCoreApplication.translate("mainwindow", u":", None))
+        self.api_lab.setText(QCoreApplication.translate("mainwindow", u"API Key", None))
+        self.query_lab.setText(QCoreApplication.translate("mainwindow", u"Query Limit", None))
+        self.col_2.setText(QCoreApplication.translate("mainwindow", u":", None))
+        self.thr_lab.setText(QCoreApplication.translate("mainwindow", u"Threshold", None))
+        self.step_lab.setText(QCoreApplication.translate("mainwindow", u"Step", None))
+        self.col_4.setText(QCoreApplication.translate("mainwindow", u":", None))
+        self.col_1.setText(QCoreApplication.translate("mainwindow", u":", None))
+        self.token_lab.setText(QCoreApplication.translate("mainwindow", u"Token", None))
         self.save_info.setText(QCoreApplication.translate("mainwindow", u"Save", None))
     # retranslateUi
 

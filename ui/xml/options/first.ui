@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>650</width>
-    <height>240</height>
+    <height>235</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -217,6 +217,12 @@
         </property>
         <item>
          <widget class="QPushButton" name="add">
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>30</height>
+           </size>
+          </property>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
@@ -237,28 +243,13 @@
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="find_but">
-          <property name="maximumSize">
+         <widget class="QPushButton" name="remove">
+          <property name="minimumSize">
            <size>
-            <width>16777215</width>
-            <height>16777215</height>
+            <width>0</width>
+            <height>30</height>
            </size>
           </property>
-          <property name="font">
-           <font>
-            <pointsize>10</pointsize>
-           </font>
-          </property>
-          <property name="styleSheet">
-           <string notr="true">background-color: rgb(210, 160, 160);</string>
-          </property>
-          <property name="text">
-           <string>Find</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="remove">
           <property name="maximumSize">
            <size>
             <width>16777215</width>

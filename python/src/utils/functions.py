@@ -49,24 +49,11 @@ and does not copy it. That implies that if you want another collection, you must
 copy it before calling this method.
 
 @author  Thomas Gauthier
-@version 0.0
+@version 0.1
 """
-def clear_empty[T](collection: Iterable[T]) -> None:
+def clearEmpty[T](collection: Iterable[T]) -> None:
     for element in collection:
-        if isinstance(element, None) or not bool(element):
-            del collection[element]
-
-"""
-Function that transforms a list to a dictionary based on a map function.
-Note that it will directly return the instance if it's a dictionary.
-
-@author  Thomas Gauthier
-@version 0.0
-"""
-def transform_as_dict[T, Q](collection: dict[T, Q] | list[Q], mapper: Callable[[Q], T] | None = None) -> dict[T, Q]:
-    if isinstance(collection, dict):
-        return collection
-    return dict.fromkeys(map(lambda key: mapper(key), collection), collection)
+        if isinstance(element, None) or not bool(element): del collection[element]
 
 """
 A useful function that will make a dictionary based on a list of
@@ -106,18 +93,92 @@ def cbdict[T, Q](keys: Iterable[T], values: Iterable[Q]) -> dict[T, Q]:
 """
 Basic factory for toggling windows.
 
+Overrides the close event with a hidden event to not create new windows each time.
+
+@author  Thomas Gauthier
+@version 1.0
+"""
+from PySide6.QtWidgets import QWidget
+from PySide6.QtCore    import QEvent
+def toggler(window: QWidget) -> Callable[..., None]:
+    window.closeEvent = lambda : window.hide()
+    def inner(event: QEvent) -> None:
+        nonlocal window
+        if not window.isHidden(): window.hide()
+        else: window.show()
+        event.accept()
+        activated = not activated
+    return inner
+
+import json
+from ....ui.windows import Parameters, errorFactory
+def appendParams() -> dict[str, str]:
+    params: dict[str, str] = {}
+    with open(Parameters.FILE) as file:
+        js: Any = json.loads(file.read())
+
+        for param in Parameters.LABELS.keys():
+            try: params[param] = js[param]
+            except:
+                errorFactory(
+                    "Bad argument",
+                    "Parameter received had an error (" + param + ')'
+                ).show()
+                return
+    return params
+
+"""
+A simple binary search implementation.
+
 @author  Thomas Gauthier
 @version 0.0
 """
-from PySide6.QtWidgets import QWidget
-def toggler(window: QWidget) -> Callable[..., None]:
-    activated: bool = False
-    def inner() -> None:
-        nonlocal activated, window
-        if activated: window.hide()
-        else: window.show()
-        activated = not activated
-    return inner
+import math
+def binarySearch[T](ite: Iterable[T], target: T) -> int:
+    if len(ite) == 0: return -1
+
+    high:  int = len(ite) - 1
+    if ite[high] == target: return high  # Saves me from headaches of by one errors
+
+    low:   int = 0
+    mid:   int = math.floor((high - low) / 2)
+    mid_v:  T = ite[mid]
+
+    while mid_v != target:
+        if low == high + 1: return -1
+        elif mid_v < target: low = mid
+        else: high = mid
+
+        mid   = math.floor((high - low) / 2)
+        mid_v = ite[mid]
+
+    return mid
+
+"""
+A function that mimics a binary search, but for finding the lowest index where
+ite[index] < ite[other]. Note that if, foreach index in the array, the cutoff
+is less than or equal to ite[index], this will return the index 0.
+
+@author  Thomas Gauthier
+@version 0.0
+"""
+def cutoff[T](ite: Iterable[T], cutoff: T) -> int:
+    if len(ite) == 0: return 0
+
+    high: int = len(ite) - 1
+    if ite[high] < cutoff: return high   # Saves me from headaches of by one errors
+
+    low:  int = 0
+    mid:  int = math.floor((high - low) / 2)
+    mid_v:  T = ite[mid]
+
+    while True:
+        if low == high + 1: return low
+        elif mid_v < cutoff: low = mid
+        else: high = mid
+
+        mid   = math.floor((high - low) / 2)
+        mid_v = ite[mid]
 
 """
 A class representing an atomic pointer.
@@ -126,18 +187,22 @@ A class representing an atomic pointer.
 @version 0.0
 """
 class _AtomicInstance[T](object):
+    @property
+    def val(self: Self) -> T:
+        return self._val
+
     @property.getter
-    def val(self) -> T:
+    def val(self: Self) -> T:
         self.lock.acquire()
-        ref: T = self.val.contents
+        ref: T = self._val.contents
         self.lock.release()
         return ref
 
     @property.setter
-    def val(self, other: T) -> None:
+    def val(self: Self, other: T) -> None:
         temp: T = other # Forces it to be a lvalue
         self.lock.acquire()
-        self.val = pointer(temp)
+        self._val = pointer(temp)
         self.lock.release()
         # Temp will then only be accessed by the pointer
         # That means that it does not really matter whether
@@ -146,7 +211,7 @@ class _AtomicInstance[T](object):
     # Default initializer
     def __init__(self: Self, val: T) -> None:
         self.lock:    Lock = Lock()
-        self.val: _Pointer = val
+        self._val: _Pointer = val
 
 # Factory method for returning an atomic of the instance
 def atomic[T](instance: T) -> _AtomicInstance[T]:

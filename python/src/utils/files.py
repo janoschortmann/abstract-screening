@@ -7,7 +7,7 @@ that concern file manipulation/objects referring to files.
 @version 0.4
 """
 
-from typing import Self, Final, NewType
+from typing import Self
 
 import datetime as dt
 
@@ -23,7 +23,7 @@ This will be used, for example, to store all given papers in an array
 for reference when showing them in the TableView and/or when doing further queries.
 
 @author  Thomas Gauthier
-@version 0.3
+@version 0.4
 """
 class Paper(object):
     # Could be done with enums, but there are a pain to work with in python...
@@ -34,20 +34,23 @@ class Paper(object):
 
     # Default initializer
     def __init__(
-                self: Self,
+                self:  Self,
                 title: str,
-                jour: str,
-                date: dt.date,
-                dire: str,
-                doi: str | None = None,
-                label: str | None = LABELS[0]
+                jour:  str,
+                date:  dt.date,
+                abstr: str,
+                dire:  str,
+                doi:   str | None = None,
+                label: lab | None = LABELS[0]
                 ) -> None:
         self.title:     str = title
+        self.abstr:     str = abstr
         self.jour:      str = jour
         self.date:  dt.date = date
         self.dire:      str = dire
         self.doi:       str = doi
         self.label:     str = label
+        self.prob:    float = 0.
 
     """
     Changes the state of the label to the one received.
@@ -73,7 +76,7 @@ class Paper(object):
     For any class that inherits from this, this function must be reimplemented.
     """
     @staticmethod
-    def parse_line(line: str) -> ...:
+    def parseLine(line: str) -> ...:
         pass # Todo
 
     """
@@ -84,6 +87,13 @@ class Paper(object):
     """
     def __hash__(self: Self) -> int:
         return hash(self.title + str(self.date))
+
+    """
+    Returns the representation of this paper. Used for the stemming
+    and vectorizing pocesses.
+    """
+    def __str__(self: Self) -> str:
+        return self.title + " " + self.abstr + " " + self.jour
 
     """
     Basic equality function that compares both the titles and the dates.

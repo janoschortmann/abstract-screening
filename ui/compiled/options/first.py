@@ -23,7 +23,7 @@ class Ui_first_option(object):
     def setupUi(self, first_option):
         if not first_option.objectName():
             first_option.setObjectName(u"first_option")
-        first_option.resize(650, 240)
+        first_option.resize(650, 235)
         self.horizontalLayout = QHBoxLayout(first_option)
         self.horizontalLayout.setSpacing(15)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
@@ -144,6 +144,7 @@ class Ui_first_option(object):
         self.buttons.setSizeConstraint(QLayout.SizeConstraint.SetDefaultConstraint)
         self.add = QPushButton(self.query_buttons)
         self.add.setObjectName(u"add")
+        self.add.setMinimumSize(QSize(0, 30))
         self.add.setMaximumSize(QSize(16777215, 16777215))
         font1 = QFont()
         font1.setPointSize(10)
@@ -152,16 +153,9 @@ class Ui_first_option(object):
 
         self.buttons.addWidget(self.add)
 
-        self.find_but = QPushButton(self.query_buttons)
-        self.find_but.setObjectName(u"find_but")
-        self.find_but.setMaximumSize(QSize(16777215, 16777215))
-        self.find_but.setFont(font1)
-        self.find_but.setStyleSheet(u"background-color: rgb(210, 160, 160);")
-
-        self.buttons.addWidget(self.find_but)
-
         self.remove = QPushButton(self.query_buttons)
         self.remove.setObjectName(u"remove")
+        self.remove.setMinimumSize(QSize(0, 30))
         self.remove.setMaximumSize(QSize(16777215, 16777215))
         self.remove.setFont(font1)
         self.remove.setStyleSheet(u"background-color: rgb(255, 90, 90);")
@@ -196,7 +190,6 @@ class Ui_first_option(object):
         self.sample_lab.setText(QCoreApplication.translate("first_option", u"Sample Size", None))
         self.validation_lab.setText(QCoreApplication.translate("first_option", u"Validation Size", None))
         self.add.setText(QCoreApplication.translate("first_option", u"Add", None))
-        self.find_but.setText(QCoreApplication.translate("first_option", u"Find", None))
         self.remove.setText(QCoreApplication.translate("first_option", u"Remove", None))
     # retranslateUi
 

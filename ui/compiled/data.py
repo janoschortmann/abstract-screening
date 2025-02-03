@@ -67,9 +67,9 @@ class Ui_mainwindow(object):
         self.splitter = QSplitter(mainwindow)
         self.splitter.setObjectName(u"splitter")
         self.splitter.setOrientation(Qt.Orientation.Vertical)
-        self.papers = QTableView(self.splitter)
-        self.papers.setObjectName(u"papers")
-        self.splitter.addWidget(self.papers)
+        self.__papers = QTableView(self.splitter)
+        self.__papers.setObjectName(u"__papers")
+        self.splitter.addWidget(self.__papers)
         self.horizontalLayoutWidget_2 = QWidget(self.splitter)
         self.horizontalLayoutWidget_2.setObjectName(u"horizontalLayoutWidget_2")
         self.bottom = QHBoxLayout(self.horizontalLayoutWidget_2)
@@ -100,32 +100,32 @@ class Ui_mainwindow(object):
 
         self.bottom.addWidget(self.specifier)
 
-        self.add_button = QPushButton(self.horizontalLayoutWidget_2)
-        self.add_button.setObjectName(u"add_button")
+        self.add_but = QPushButton(self.horizontalLayoutWidget_2)
+        self.add_but.setObjectName(u"add_but")
         sizePolicy3 = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
         sizePolicy3.setHorizontalStretch(0)
         sizePolicy3.setVerticalStretch(0)
-        sizePolicy3.setHeightForWidth(self.add_button.sizePolicy().hasHeightForWidth())
-        self.add_button.setSizePolicy(sizePolicy3)
-        self.add_button.setMinimumSize(QSize(0, 25))
-        self.add_button.setMaximumSize(QSize(100, 16777215))
-        self.add_button.setAutoFillBackground(False)
-        self.add_button.setStyleSheet(u"background-color: rgb(115, 255, 115);\n"
+        sizePolicy3.setHeightForWidth(self.add_but.sizePolicy().hasHeightForWidth())
+        self.add_but.setSizePolicy(sizePolicy3)
+        self.add_but.setMinimumSize(QSize(0, 25))
+        self.add_but.setMaximumSize(QSize(100, 16777215))
+        self.add_but.setAutoFillBackground(False)
+        self.add_but.setStyleSheet(u"background-color: rgb(115, 255, 115);\n"
 "font-color: white;")
 
-        self.bottom.addWidget(self.add_button)
+        self.bottom.addWidget(self.add_but)
 
-        self.remove_button = QPushButton(self.horizontalLayoutWidget_2)
-        self.remove_button.setObjectName(u"remove_button")
-        sizePolicy3.setHeightForWidth(self.remove_button.sizePolicy().hasHeightForWidth())
-        self.remove_button.setSizePolicy(sizePolicy3)
-        self.remove_button.setMinimumSize(QSize(0, 25))
-        self.remove_button.setMaximumSize(QSize(100, 16777215))
-        self.remove_button.setAutoFillBackground(False)
-        self.remove_button.setStyleSheet(u"background-color: rgb(255, 90, 90);\n"
+        self.remove_but = QPushButton(self.horizontalLayoutWidget_2)
+        self.remove_but.setObjectName(u"remove_but")
+        sizePolicy3.setHeightForWidth(self.remove_but.sizePolicy().hasHeightForWidth())
+        self.remove_but.setSizePolicy(sizePolicy3)
+        self.remove_but.setMinimumSize(QSize(0, 25))
+        self.remove_but.setMaximumSize(QSize(100, 16777215))
+        self.remove_but.setAutoFillBackground(False)
+        self.remove_but.setStyleSheet(u"background-color: rgb(255, 90, 90);\n"
 "font-color: white;")
 
-        self.bottom.addWidget(self.remove_button)
+        self.bottom.addWidget(self.remove_but)
 
         self.splitter.addWidget(self.horizontalLayoutWidget_2)
 
@@ -142,7 +142,7 @@ class Ui_mainwindow(object):
         self.find_but.setText(QCoreApplication.translate("mainwindow", u"Find", None))
         self.abs_path.setText(QCoreApplication.translate("mainwindow", u"Complete List of Papers", None))
         self.path.setPlaceholderText(QCoreApplication.translate("mainwindow", u"File or Directory", None))
-        self.add_button.setText(QCoreApplication.translate("mainwindow", u"Add", None))
-        self.remove_button.setText(QCoreApplication.translate("mainwindow", u"Remove", None))
+        self.add_but.setText(QCoreApplication.translate("mainwindow", u"Add", None))
+        self.remove_but.setText(QCoreApplication.translate("mainwindow", u"Remove", None))
     # retranslateUi
 
