@@ -19,6 +19,16 @@
   <property name="windowTitle">
    <string>Comprehensive Abstsract Screening</string>
   </property>
+  <property name="styleSheet">
+   <string notr="true">.QPushButton:hover {
+    background-color: #64b5f6;
+    color: #fff;
+}
+
+.QPushButton:pressed {
+    background-color: #bbdefb;
+}</string>
+  </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
     <item>
@@ -30,11 +40,11 @@
        </size>
       </property>
       <property name="styleSheet">
-       <string notr="true">border: 1px solid grey;</string>
+       <string notr="true"/>
       </property>
-      <layout class="QHBoxLayout" name="top">
+      <layout class="QHBoxLayout" name="top" stretch="0,0,0,0,0">
        <property name="spacing">
-        <number>0</number>
+        <number>5</number>
        </property>
        <property name="leftMargin">
         <number>0</number>
@@ -56,6 +66,9 @@
            <height>35</height>
           </size>
          </property>
+         <property name="styleSheet">
+          <string notr="true">border: 1px solid grey;</string>
+         </property>
          <property name="text">
           <string>Params</string>
          </property>
@@ -72,6 +85,9 @@
            <height>35</height>
           </size>
          </property>
+         <property name="styleSheet">
+          <string notr="true">border: 1px solid grey;</string>
+         </property>
          <property name="text">
           <string>Data</string>
          </property>
@@ -87,6 +103,9 @@
            <width>80</width>
            <height>35</height>
           </size>
+         </property>
+         <property name="styleSheet">
+          <string notr="true">border: 1px solid grey;</string>
          </property>
          <property name="text">
           <string>About</string>
@@ -138,17 +157,15 @@
     </item>
     <item>
      <widget class="QSplitter" name="body">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
       <property name="orientation">
        <enum>Qt::Orientation::Vertical</enum>
       </property>
-      <widget class="QWidget" name="display" native="true">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-      </widget>
       <widget class="QSplitter" name="bottom">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
@@ -159,19 +176,30 @@
        <property name="maximumSize">
         <size>
          <width>16777215</width>
-         <height>111</height>
+         <height>16777215</height>
         </size>
        </property>
        <property name="orientation">
         <enum>Qt::Orientation::Horizontal</enum>
        </property>
-       <widget class="QWidget" name="options" native="true"/>
        <widget class="QWidget" name="steps" native="true">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+         <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>120</width>
+          <height>120</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>16777215</height>
+         </size>
         </property>
         <property name="autoFillBackground">
          <bool>false</bool>
@@ -180,6 +208,15 @@
          <string notr="true">border: 1px solid grey;</string>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_3">
+         <property name="sizeConstraint">
+          <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
+         </property>
+         <property name="leftMargin">
+          <number>9</number>
+         </property>
+         <property name="topMargin">
+          <number>9</number>
+         </property>
          <item>
           <widget class="QLabel" name="step_lab">
            <property name="maximumSize">
@@ -227,6 +264,16 @@
              <family>Open Sans</family>
              <pointsize>12</pointsize>
             </font>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">.QPushButton:hover {
+    background-color: rgb(100, 100, 100);
+    color: #fff;
+}
+
+.QPushButton:pressed {
+	background-color: rgb(35, 35, 35);
+}</string>
            </property>
            <property name="text">
             <string>Next</string>

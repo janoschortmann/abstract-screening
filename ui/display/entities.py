@@ -7,7 +7,7 @@ This include, for example, the table from the first step (or from the data butto
 which shows each paper. Another example would be the Operating Characteristic Curve.
 
 @author  Thomas Gauthier
-@version 0.1
+@version 0.2
 """
 from multiprocessing   import Pool
 from pyqtgraph         import PlotWidget, mkPen, QtGui
@@ -15,7 +15,7 @@ from PySide6.QtCore    import (
                                 QAbstractTableModel,
                                 QModelIndex,
                                 QModelRoleData,
-                                QObject,
+                                Signal,
                                 Qt
                               )
 from PySide6.QtWidgets import QMessageBox, QWidget, QTableView, QVBoxLayout
@@ -25,8 +25,9 @@ from typing            import Any, Callable, Final, Iterable, Self, override, fi
 
 from python.src.utils.files     import Paper
 from python.src.utils.functions import clearEmpty, unique
-from ui.display.entities import PaperView
 from ui.resources_loader import *
+
+import ui.windows as win
 
 import datetime as dt
 import numpy as np
@@ -40,39 +41,36 @@ align_flags = Qt.AlignmentFlag
 """
 Basic class that represent the skeleton of all model table model used.
 
-T must be an instance of the Paper class.
-
 @author  Thomas Gauthier
-@version 0.1
+@version 0.2
 """
-class PaperTableModel[T](QAbstractTableModel):
+class PaperTableModel(QAbstractTableModel):
     # Default initializer that assigns the data received and the columns shown
     # Please note that the data is not copied but referenced. Thus, it is assumed
     # That the original instance won't change. This is done to be more efficient,
     # But puts the responsability on the user to not fuck this up.
     def __init__(
-                  self: Self,
-                  data: list[T] | None,
-                  columns: list[str] | tuple[str],
-                  headers: list[str] | tuple[str],
-                  parent: QWidget | None = None
+                  self:    Self,
+                  data:    list | None,
+                  columns: list[str],
+                  headers: list[str],
+                  parent:  QWidget | None = None
                 ) -> None:
         super().__init__(parent)
-
-        if not isinstance(T, Paper):
-            raise TypeError("T is not from the Paper class")
 
         if len(headers) != len(columns):
             raise Exception("List of different sizes")
 
-        self.__columns: Final[list[str]] | tuple[str] = columns.copy()
-        self.__headers: Final[list[str]] | tuple[str] = headers.copy()
-        self.__data: list[T] = data if data is not None else []
+        self.__columns: Final[list[str]] = columns.copy()
+        self.__headers: Final[list[str]] = headers.copy()
+        self.__data: list = data if data is not None else []
 
-    def rowCount(self: Self) -> int:
+    @override
+    def rowCount(self: Self, index: QModelIndex) -> int:
         return len(self.__data)
 
-    def columnCount(self: Self) -> int:
+    @override
+    def columnCount(self: Self, index: QModelIndex) -> int:
         return len(self.__columns)
 
     # All data will be aligned in the center
@@ -99,16 +97,14 @@ class PaperTableModel[T](QAbstractTableModel):
 """
 Default class implementing the PaperTableModel.
 
-T must be an instance of the Paper class.
-
 @author  Thomas Gauthier
-@version 0.0
+@version 0.1
 """
-class PaperTableView[T](QWidget):
+class PaperTableView(QWidget):
     # Default initializer
     def __init__(
                   self: Self,
-                  data: list[T] | None,
+                  data: list | None,
                   columns: list[str] | tuple[str],
                   headers: list[str] | tuple[str],
                   parent: QWidget | None = None
@@ -116,7 +112,7 @@ class PaperTableView[T](QWidget):
         # Variables
         super().__init__(parent)
         self.model: PaperTableModel = PaperTableModel(data, columns, headers)
-        self.view:       QTableView = QTableView()
+        self.view: QTableView = QTableView()
         self.view.setModel(self.model)
 
         # Layout
@@ -127,17 +123,15 @@ class PaperTableView[T](QWidget):
 """
 Implements the PaperTableModel with barebone data manipulation.
 
-T must be an instance of the Paper class.
-
 @author  Thomas Gauthier
-@version 0.0
+@version 0.1
 """
-class MutableTableModel[T](PaperTableModel):
+class MutableTableModel(PaperTableModel):
     # Default initializer
     # Here again, the data is passed by reference
     def __init__(
                   self: Self,
-                  data: list[T] | None,
+                  data: list | None,
                   columns: list[str] | tuple[str],
                   headers: list[str] | tuple[str],
                   parent:    QWidget | None = None
@@ -147,13 +141,13 @@ class MutableTableModel[T](PaperTableModel):
     # Appends the new data and removes doubles
     # Note that this could also be done outside this method since the data
     # Is passed by reference. This also accepts doubles of papers
-    def append(self: Self, data: list[T]) -> None:
+    def append(self: Self, data: list) -> None:
         self.__data.append(data)
         self.dataChanged.emit()
 
     # Removes the targets and sends back the failures
-    def remove(self: Self, removal: list[T]) -> list[T] | None:
-        failures: list[T] = []
+    def remove(self: Self, removal: list) -> list | None:
+        failures: list = []
 
         for element in removal:
             try: self.__data.remove(element)
@@ -176,35 +170,33 @@ anyone that uses this must not manipulate the data outside this class.
 
 More information is found in the initializer of PaperTableModel.
 
-T must be an instance of the Paper class.
-
 @author  Thomas Gauthier
-@version 0.1
+@version 0.2
 """
-class FindingModel[T](PaperTableModel):
+class FindingModel(PaperTableModel):
+    hidden_changed: Signal = Signal()
+
     # Default initializer
     def __init__(
-                  self: Self, data: list[T] | None,
+                  self: Self, data: list | None,
                   columns: list[str] | tuple[str],
                   headers: list[str] | tuple[str],
                   parent:    QWidget | None = None
                 ) -> None:
         # Additional variables
         self.__lock:      Lock = Lock()
-        self.__hidden:    list[T] = data
-        self.__criterias: list[Callable[[T], bool]] = []
+        self.__hidden:    list = data
+        self.__criterias: list[Callable[..., bool]] = []
 
-        # Synchronizing the data
-        self.hidden_changed: QObject = QObject()
-
+        # Hidden  copied since it represents the data shown
         super().__init__(self.__hidden.copy(), columns, headers, parent)
 
     # Updates the view
     @staticmethod
     def updates[R, **P](func: Callable[P, R]) -> Callable[P, R]:
         # Get the "self" instance
-        self: FindingModel = P.args[0]
         def inner(*args: P.args, **kwargs: P.kwargs) -> R:
+            self = args[0]
             self.__lock.acquire()
             argument: R = func(args, kwargs)
             self.updateShowing()
@@ -213,10 +205,10 @@ class FindingModel[T](PaperTableModel):
         return inner
 
     # Mutates the hidden data
-    @staticmethod
-    def mutated[R, **P](func: Callable[P, R]) -> Callable[P, R]:
-        self: FindingModel = P.args[0]
+    @classmethod
+    def mutated[R, **P](FindingModel, func: Callable[P, R]) -> Callable[P, R]:
         def inner(*args: P.args, **kwargs: P.kwargs) -> R:
+            self = args[0]
             var: R = func(args, kwargs)
             self.hidden_changed.emit()
             return var
@@ -228,8 +220,8 @@ class FindingModel[T](PaperTableModel):
         self.dataChanged.emit()
 
     # Method used to return the papers that are respecting the criterias
-    def getRespecting(self: Self) -> list[T]:
-        respecting: list[T] = []
+    def getRespecting(self: Self) -> list:
+        respecting: list = []
 
         for paper in self.__hidden:
             # Could be boxed in another function, depending on future requirements
@@ -244,12 +236,10 @@ class FindingModel[T](PaperTableModel):
         return respecting
 
     # Function that will add the criterias for the view
-    @updates
-    def addCriterias(self: Self, criterias: Iterable[Callable[[T], bool]]) -> None:
+    def addCriterias(self: Self, criterias: Iterable[Callable[..., bool]]) -> None:
         self.__criterias.extend(criterias)
 
-    @updates
-    def removeCriterias(self: Self, criteria: dict[int, Callable[[T], bool]] | list[Callable[[T], bool]]) -> list[int] | None:
+    def removeCriterias(self: Self, criteria: dict[int, Callable[..., bool]] | list[Callable[..., bool]]) -> list[int] | None:
         keys: list[int] = []
 
         if isinstance(criteria, list): keys = map(id, criteria)
@@ -262,21 +252,18 @@ class FindingModel[T](PaperTableModel):
 
         return failures or None
 
-    @updates
     def clearCriterias(self: Self) -> None:
         self.__criterias.clear()
 
     # Appends new data and shows it if it respects the current criterias
     # Note that this could also be done outside this method since the data
     # Is passed by reference. This also accepts doubles
-    @mutated
-    def append(self: Self, data: list[T]) -> None:
+    def append(self: Self, data: list) -> None:
         self.__hidden.extend(data)
 
     # Removes the elements that are the same as in the removal list
-    @mutated
-    def remove(self: Self, removal: list[T]) -> list[T] | None:
-        failures: list[T] = []
+    def remove(self: Self, removal: list) -> list | None:
+        failures: list = []
 
         for element in removal:
             try: self.__hidden.remove(element)
@@ -285,20 +272,34 @@ class FindingModel[T](PaperTableModel):
         return failures or None
 
     # Clear alls the data
-    @mutated
     def clear(self: Self) -> None:
         self.__hidden.clear()
+
+# Manually decorating methods
+for method in (
+    FindingModel.clear,
+    FindingModel.remove,
+    FindingModel.append,
+):
+    method = FindingModel.mutated(method)
+
+for method in (
+    FindingModel.clearCriterias,
+    FindingModel.addCriterias,
+    FindingModel.removeCriterias
+):
+    method = FindingModel.updates(method)
 
 """
 Implements the PaperTableModel with barebone unique data manipulation.
 
 @author  Thomas Gauthier
-@version 0.0
+@version 0.1
 """
-class UniqueTableModel[T](MutableTableModel):
+class UniqueTableModel(MutableTableModel):
     # Default initializer
     def __init__(
-                  self: Self, data: list[T] | None,
+                  self: Self, data: list | None,
                   columns: list[str] | tuple[str],
                   headers: list[str] | tuple[str],
                   parent:    QWidget | None = None
@@ -307,7 +308,7 @@ class UniqueTableModel[T](MutableTableModel):
 
     # Appends the new data and removes doubles
     @override
-    def append(self: Self, data: list[T]) -> None:
+    def append(self: Self, data: list) -> None:
         self.__data.append(data)
         unique(self.__data)
         self.dataChanged.emit()
@@ -321,25 +322,22 @@ This is used for example on step one and on the data label.
 When an element is clicked, it will cycle through the possible labels.
 
 @author  Thomas Gauthier
-@version 0.1
+@version 0.2
 """
 @final
-class SelectionModel[T](FindingModel):
-    # An ordered tuple of the data shown
-    columns: tuple[str] = ("title", "date", "jour", "doi", "label")
-    headers: tuple[str] = ("Title", "Date", "Journal", "DOI", "Label")
+class SelectionModel(FindingModel):
+    # An ordered list of the data shown
+    columns: Final[list[str]] = ["title", "date", "jour", "doi", "label"]
+    headers: Final[list[str]] = ["Title", "Date", "Journal", "DOI", "Label"]
     dict_images: Final[dict[int, QtGui.QIcon]] = {
         0: QtGui.QIcon(":/resources/grey_bar.png"),
         1: QtGui.QIcon(":/resources/green_checkbar.png"),
         2: QtGui.QIcon(":/resources/delete.png")
     }
 
-    """
-    Basic constructor that receives a list of the elements containing papers.
-    Note that if T is not an instance of Paper, this will throw an error.
-    """
-    def __init__(self: Self, data: list[T], parent: QWidget | None = None) -> None:
-        super(self, data, SelectionModel.columns, SelectionModel.headers, parent)
+    # Basic constructor that receives a list of the elements containing papers.
+    def __init__(self: Self, data: list, parent: QWidget | None = None) -> None:
+        super().__init__(data, SelectionModel.columns, SelectionModel.headers, parent)
 
     # Return the flags for an item in the table
     def flags(self: Self) -> item_flags:
@@ -358,32 +356,27 @@ class SelectionModel[T](FindingModel):
 
     # Default behaviour for clicking on an item
     def clicked(self: Self, index: QModelIndex) -> None:
-        selected: T = self.__viewing[index.row()]
+        selected: Paper = self.__viewing[index.row()]
         selected.index = (selected.index + 1) % len(SelectionModel.dict_images)
         self.layoutChanged.emit()
 
     # Default behaviour for double clicking on an item
     def doubleClicked(self: Self, index: QModelIndex) -> None:
-        paper_view: PaperView = PaperView(self.__viewing[index.row()])
+        paper_view: win.PaperView = win.PaperView(self.__viewing[index.row()])
         paper_view.changed.connect(self.layoutChanged.emit)
         paper_view.show()
 
 """
-Basic view for selecting papers.
-
-It is necessary since the callbacks for clicking
-and double clicking are inherited from QAbstractTableView
-and not QAbstractTableViewModel.
+Basic view for selecting papers that reimplement the clicked and
+double clicked callbacks.
 
 @author  Thomas Gauthier
-@version 0.0
+@version 0.1
 """
-class SelectionView[T](QTableView):
-    # Basic Constructor
+class SelectionView(QTableView):
+    # Basic Constructor. Only calls the super constructor
     def __init__(self: Self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.model: SelectionModel = SelectionModel()
-        self.setLayout(self.model)
 
     # Overrides it with the one from the model
     @override
@@ -398,29 +391,37 @@ class SelectionView[T](QTableView):
 """
 Basic implementation of the FindingModel as a TableView.
 
-The argument T must be an instance of the Paper class.
-
 @author  Thomas Gauthier
-@version 0.1
+@version 0.2
 """
-class FindingView[T](QWidget):
-    # Basic constructor receiving data and arguments for initialization
-    def __init__(
+class FindingView(QWidget):
+    """
+    The basic constructor for a FindingView. It receives a model that inherits from the finding view
+    and a view that inherits from QTableView so that multiple TableViews can have a "find" functionality.
+
+    Note that if the model and/or the view is not provided, this will automatically assume that they
+    are standard QTableView and FindingModel (respectively).
+
+    Please be sure to pass an instance of the view and an instance of the model as rvalues, since,
+    by keeping an exterior reference, this may lead to bugs.
+    """
+    def __init__[**P](
                   self:   Self,
-                  data:   list[T],
-                  Model:  FindingModel   = FindingModel,
-                  View:   QTableView     = QTableView,
+                  model:  FindingModel,
+                  view:   QTableView,
                   parent: QWidget | None = None,
                 ) -> None:
         # Default initialization
         super().__init__(parent)
-        self.table_view: QTableView = View()
-        self.model: SelectionModel  = Model(data)
-        self.table_view.setModel(self.model)
+        view.setModel(model)
+
+        # Saving the values for another time
+        self.view:    QTableView = view
+        self.model: FindingModel = model
 
         # Connecting both layouts together
         layout: QWidget = QVBoxLayout(self)
-        layout.addLayout(self.table_view)
+        layout.children().append(view)
         self.setLayout(layout)
 
     # A useful method for getting the criterias based on standard input
@@ -432,16 +433,19 @@ class FindingView[T](QWidget):
                         date:    tuple[dt.date, dt.date] | None,
                         doi:     str | None,
                         label:   str | None
-                       ) -> list[Callable[[T], bool]]:
-        shortcut: Callable[[T], re.Pattern] = lambda arg: re.compile(arg[0] if arg[1] else re.escape(arg[0]))
-        every: list[Callable[[T], bool] | None] = [
-            (lambda val: (lambda paper: val.match(paper.title)))(shortcut(title)) if not isinstance(title, None) else None,
-            (lambda val: (lambda paper: val.match(paper.journal)))(shortcut(journal)) if not isinstance(journal, None) else None,
-            (lambda paper: (date[0] <= paper.date and paper.date <= date[1])) if not isinstance(date, None) else None,
-            (lambda paper: (paper.doi == doi)) if not isinstance(doi, None) else None,
+                       ) -> list[Callable[..., bool]]:
+        # Shortcuts for not typing it out everytime
+        shortcut: Callable[..., re.Pattern] = lambda arg: re.compile(arg[0] if arg[1] else re.escape(arg[0]))
+        trying: Callable[..., Any] = lambda val, func: func if not isinstance(val, None) else None
+
+        every: list[Callable[..., bool] | None] = [
+            trying(journal, (lambda val:   (lambda paper: val.match(paper.journal)))(shortcut(journal))),
+            trying(title,   (lambda val:   (lambda paper: val.match(paper.title)))(shortcut(title))),
+            trying(date,    (lambda paper: (date[0] <= paper.date and paper.date <= date[1]))),
+            trying(doi,     (lambda paper: (paper.doi == doi)))
         ]
         if label is not None and label == Paper.POSSIBILITIES[0]: every.append(lambda paper: paper.labeled())
-        else: every.append((lambda paper: (paper.label == label)) if not isinstance(label, None) else None)
+        else: every.append(trying(label, (lambda paper: (paper.label == label))))
 
         clearEmpty(every)
         return every
@@ -477,12 +481,12 @@ class FindingView[T](QWidget):
                date:    tuple[dt.date, dt.date] | None,
                doi:     str | None,
                label:   str | None
-             ) -> list[T]:
+             ) -> list:
         # HACK : Access to private variables
         # This is generally unsafe, but necessary in this context
         momento: list[Callable[..., Any]] = self.model.__criterias.copy()
         self.model.__criterias = self.__getCriterias(title, journal, date, doi, label)
-        temp: list[T] = self.model.getRespecting()
+        temp: list = self.model.getRespecting()
         self.model.__criterias = momento
         return temp
 
@@ -501,8 +505,6 @@ class FindingView[T](QWidget):
                       label: int | None
                     ) -> None:
         self.model.remove(self.found(title, journal, date, doi, label))
-
-    del __getCriterias
 
 """
 Basic graph using pyqtgraph as instructed in the pdf.
@@ -692,8 +694,7 @@ def errorFactory(name: str, message: str, parent: QWidget | None = None) -> QMes
     return mbFactory(name, message, QMessageBox.Icon.Critical, QMessageBox.StandardButton.Ok, parent)
 
 """
-A factory method that will return a QMessageBox
-with the given parameters.
+A factory method that will return a QMessageBox with the given parameters.
 
 @author  Thomas Gauthier
 @version 0.0

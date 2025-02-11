@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-Main file setting up the UI.
+Main file setting up the UI and the logic.
+
+It only contains the MainWindow.
 
 @author  Thomas Gauthier
 @version 0.2
@@ -24,28 +26,25 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore    import QEvent
 
 # Supposed to run first as the name of the file says
-# Also, this was done because imports and qt were bothering me
-# With imports. That's also why the app is instatiated right after
 if __name__ != "__main__":
     sys.exit(-1)
 
 # I <3 "QPixmap: Must construct a QGuiApplication before a QPixmap"
 app: QApplication = QApplication([])
 
-from multiprocessing import Barrier, Lock, Queue, Process, current_process
+from multiprocessing import Lock, Queue, Process
 from sklearn.metrics import confusion_matrix, accuracy_score, recall_score, precision_score, f1_score
 from sklearn.tree    import DecisionTreeClassifier
 from typing          import Final, Self, final
 from webbrowser      import open_new_tab
 
-from python.src.utils.files     import Paper
-from python.src.utils.functions import appendParams, cutoff, toggler
+from python.src.utils.files     import Paper, CENTRAL
+from python.src.utils.functions import appendParams, cutoff, mkabsent, toggler
 from ui.display.entities        import FindingView, OperatingCurve, SelectionView, SelectionModel
 from ui.compiled import mainwindow
 from ui.windows  import *
 
 import numpy   as np
-import sklearn as sk
 import sklearn.model_selection as ms
 import sklearn.linear_model    as lm
 
@@ -55,7 +54,7 @@ The main window of the UI.
 The main job of the MainWindow class is to synchronize all datasets
 from the Data class to everything else.
 
-It sets up the callacks and back processes.
+It sets up the callacks and backprocesses.
 
 The MainWindow class does not manage directly the data (it synchronizes it) since that
 is done with the Data class (which also manages the data between the view,
@@ -65,13 +64,14 @@ You can then say, in gruesome terms, this does the "logic" of the app whilst the
 does the "synchronizing" of the app.
 
 @author  Thomas Gauthier
-@version 0.1
+@version 0.3
 """
 @final
 class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
     # Github link for the "about" window
-    GITHUB_LINK: Final[str] = "https://github.com/janoschortmann/abstract-screening"
-    DEFAULT_FILE:       Final[str] = "~/.ACAS/results/papers.txt"
+    GITHUB_LINK:   Final[str] = "https://github.com/janoschortmann/abstract-screening"
+    DEFAULT_DIR:  Final[str]  = CENTRAL + "results/"
+    DEFAULT_STYLE: Final[str] = "border: 1px solid grey;"
 
     # The initializer of the window.
     def __init__(self: Self) -> None:
@@ -83,26 +83,73 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         self.params_window: Parameters = Parameters()
         self.data_window:         Data = Data()
 
+        # Multithreading manipulation
+        """
+        So, in theory, this is not the best solution there is since there is a few
+        milliseconds window where the next button can be clicked and start a new process, leading
+        to undefined behaviour. Fortunately, since this is a local app, it doesn't really matter in
+        practice, since the client would need to go out of their way to break the program.
+        """
+        self.data_window.being_modified.connect(self.next.setDisabled)
+
         # Setting up the callbacks
         self.params.clicked.connect(toggler(self.params_window))
         self.data.clicked.connect(toggler(self.data_window))
-        self.about.clicked.connect(lambda event: (open_new_tab(MainWindow.GITHUB_LINK), event.accept()))
+        self.about.clicked.connect(lambda : open_new_tab(MainWindow.GITHUB_LINK))
+
+        # Note that the display won't be deleted since it still may be useful for the user
+        def _finishing() -> None:
+            self.bottom.layout().removeWidget(self.options)
+            del self.options
+
+            self.options = Third()
+            self.bottom.insertWidget(0, self.options)
+            self.options.setParent(self.bottom)
 
         # Connecting the data window with the central widget
-        # Todo : This
+        # A tuple representing the sequence of events this class will call
+        # This is done for encapsulating the steps in different functions
+        sequence: tuple[Callable[..., Any]] = (
+            (lambda : (self.dismountFirst(), self.mountSecond())),
+            self.mountThird,
+            _finishing,
+            lambda : self.predictions(**self.options.sendReport())
+        )
 
+        ite: Iterable[Any] = iter(sequence)
+        def _executeNext() -> None:
+            error: bool = True
+            # Don't need to catch the StopIteration exception since the last callable (self.predictions)
+            # Will stop the program once finished, thus the iteration will never go past the last callable
+            call: Callable[[], None] = next(ite)
+            while error:
+                try:
+                    call()
+                    error = False
+                except: pass
+
+        self.next.clicked.connect(_executeNext)
+        self.mountFirst()
         self.show()
 
     # Function that sets up the first step of the procedure.
     def mountFirst(self: Self) -> None:
         # Initializing the variables for the finding window
-        self.find_but: QPushButton = QPushButton(self)
-        self.find_window:     Find = Find("Finder for Central Widget", self)
+        self.find_but: QPushButton = QPushButton()
+        self.find_window:     Find = Find("Finder for Central Widget")
 
         # Step defined widgets
-        self.display = FindingView(self.data_window.training[1], Model=SelectionModel, View=SelectionView, parent=self)
-        self.options = First(self)
+        self.display = FindingView(
+            SelectionModel(self.data_window.training[1]),
+            SelectionView()
+        )
+        self.options = First()
 
+        self.body.insertWidget(0, self.display)
+        self.bottom.insertWidget(0, self.options)
+
+        self.display.setParent(self.body)
+        self.options.setParent(self.bottom)
 
         """
         --------------------------------------------------
@@ -110,8 +157,8 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         --------------------------------------------------
         """
         """
-        This wasn't put in another class since it requires QObjects and
-        isn't used anywhere else at this current time.
+        This wasn't put in another class since it requires Signals and isn't used anywhere
+        else at this current time.
 
         An argument can be made to encapsulate this in a factory method here, but, I desire not to
         since that would imply that the MainWindow acts outside of its desired purpose and,
@@ -119,10 +166,10 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         it's the central widget of the app. Having another class be dependent on this would make
         the central widget as "just another class".
 
-        IF thou truly want to put it somewhere else, you must reimplement the QObject
+        IF thou truly want to put it somewhere else, you must reimplement the Signal
         for signaling.
         """
-        training_queue: Queue = Queue[Callable[[None], None]]()
+        training_queue: Queue = Queue()
         emptied: bool = True
         lock = Lock()
 
@@ -131,21 +178,16 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         # States are dictated through signals
         async def _addQueue(exe: Callable[[None], None]) -> None:
             training_queue.put(exe)
-            if not emptied: return
-
-            lock.acquire()
+            lock.acquire(timeout=0)
             if emptied:
                 emptied = False
 
-                async def chaining(prev: Process | None = None) -> None:
-                    if prev is not None: prev.join()
+                async def chaining(call: Callable[[None], None] | None = None) -> None:
+                    if call is not None: call()
                     nonlocal emptied
 
-                    if training_queue.empty():
-                        emptied = True
-                    else:
-                        training_queue.get()()
-                        Process(target=chaining, args=(current_process(),)).run()
+                    if training_queue.empty(): emptied = True
+                    else: Process(target=chaining, args=(training_queue.get(),)).run()
 
                 chaining()
             lock.release()
@@ -153,13 +195,20 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         del training_queue, emptied, lock
 
         # Styling for button
-        self.find_but.setMinimumSize(minw=80, minh=35)
-        self.find_but.setMaximumSize(maxw=80, maxh=35)
+        self.find_but.setMinimumSize(80, 35)
+        self.find_but.setMaximumSize(80, 35)
         self.find_but.sizePolicy().setVerticalPolicy(QSizePolicy.Policy.Fixed)
+
         self.find_but.setFlat(True)
+        self.find_but.setText("Find")
+        self.find_but.setStyleSheet(MainWindow.DEFAULT_STYLE)
+
+        # Styling for the display
+        self.display.setStyleSheet(MainWindow.DEFAULT_STYLE)
 
         # Widgets
         self.other_but.layout().addWidget(self.find_but)
+        self.find_but.setParent(self.other_but)
 
         """
         --------------------------------------------------
@@ -174,7 +223,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         self.data_window.being_modified.connect(self.find_window.setDisabled)
 
         # Synchronizing main dataset with secondary dataset
-        self.data_window.training[0].connect(_addQueue(self.display.model.updateShowing))
+        self.data_window.training[0].connect(lambda : _addQueue(self.display.model.updateShowing))
 
         # Finding window callbacks
         self.find_window.find_signal.connect(
@@ -197,21 +246,20 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         # Temporary function definitions since lambdas cannot create objects
         # In that case, the path can become a volatile variable when
         # A query is started whilst the remove/adding process isn't finished
-        def _remove(event: QEvent) -> None:
+        def _remove(ignored) -> None:
             saved: Path = self.options.directory.absolute()
-            Process(target=(lambda : self.data_window.remove(event, saved))).run()
+            Process(target=(lambda : self.data_window.remove(saved))).run()
 
-        def _add(event: QEvent) -> None:
+        def _add(ignored) -> None:
             saved: Path = self.options.directory.absolute()
             # Inner definition for the process to hook on
             def _inner() -> None:
-                nonlocal event
-                self.data_window.add(event, "Validation", saved + First.FILES[0])                 # Validation for the last training step
-                self.data_window.add(QEvent(), "Training", saved + First.FILES[2])                # Training for the AI
+                self.data_window.add("Validation", saved + First.FILES[0])   # Validation for the last training step
+                self.data_window.add("Training", saved + First.FILES[2])  # Training for the AI
                 # Note that, like the comment said in the `query` function, this will try to add
                 # Papers that were already added, but since the add function runs in O(n**2) and
                 # This adds the most papers, the cost of putting this function earlier would be greater than leaving it here
-                self.data_window.add(QEvent(), "Default case. Hello :)", saved + First.FILES[1])  # All other citations
+                self.data_window.add("Default case. Hello :)", saved + First.FILES[1])  # All other citations
             Process(_inner).run()
 
         # Querying callbacks
@@ -241,9 +289,8 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
             )
 
             # Shortcut since there is an assignment
-            def _boxAccepted(event: QEvent) -> None:
+            def _boxAccepted(ignored) -> None:
                 nonlocal response
-                event.accept()
                 response = True
 
             box.accepted.connect(_boxAccepted)
@@ -261,6 +308,9 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
 
         # Removing the button for the find window
         self.other_but.layout().removeWidget(self.find_but)
+        self.body.layout().removeWidget(self.display)
+        self.bottom.layout().removeWidget(self.options)
+
         # Deleting the widgets associated with the finding window
         del self.find_window, self.find_but, self.options, self.display
 
@@ -270,38 +320,47 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         self.data_window.setDisabled(True)
 
         # Step defined widgets
-        self.display = OperatingCurve(self)
-        self.options = Second(self)
+        self.display = OperatingCurve()
+        self.options = Second()
+
+        self.body.insertWidget(0, self.display)
+        self.bottom.insertWidget(0, self.options)
+
+        self.display.setParent(self.body)
+        self.bottom.setParent(self.options)
+
+        # Styling for the display
+        self.display.setStyleSheet(MainWindow.DEFAULT_STYLE)
 
         lock = Lock()
-        def _plotSignal(event: QEvent) -> None:
-            event.accept()
+        def _plotSignal(ignored) -> None:
             lock.acquire()
             try: self.display.setAttributes(**self.options.sendReport())
-            except: return
+            except:
+                lock.release()
+                return
 
             self.display.plot()
             lock.release()
             self.options.setDisabled(False)
 
-        self.options.plot_signal.connect(lambda event: (self.options.setDisabled(True), Process(target=_plotSignal, args=(event,)).run()))
-        self.options.clear.connect(lambda event: (event.accept(), lock.acquire(), self.display.clear(), lock.release()))
+        # No need to disable the next button since it is independant of the overlaying logic.
+        self.options.plot_signal.connect(lambda ignored: (self.options.setDisabled(True), Process(target=_plotSignal).run()))
+        self.options.clear.connect(lambda ignored: (lock.acquire(), self.display.clear(), lock.release()))
 
     """
     Note that the second window will not be dismounted since the rest of the
     procedure is done in secondary windows and the user may want to have different kinds of options
     relating the NC procedure if some interval doesn't contain enough samples.
     """
-
     def mountThird(self: Self) -> None:
         value: int | str | None = None
         valid: bool = False
         freq: QDialog = Frequency(self)
 
         # Necessary for assignment, but this is only temporary
-        def _freqCallback(event: QEvent) -> None:
+        def _freqCallback(ignored) -> None:
             nonlocal value
-            event.accept()
             value = freq.freq_edit.text()
 
         freq.accepted.connect(_freqCallback)
@@ -315,10 +374,11 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
             except: pass
         del valid
 
-        load: Loading = Loading(self.data_window.dataset[1], self, min_words=value)
+        load: Loading = Loading(self.data_window.dataset[1], parent=self, min_words=value)
         load.show()
 
         def _target() -> None:
+            self.next.setDisabled(True)
             load.getStems()
             load.close()
 
@@ -326,8 +386,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
             stem.show()
 
             # Could not include this in lambda, because of the exception
-            def _throwing(event: QEvent) -> Never:
-                event.accept()
+            def _throwing(ignored) -> Never:
                 raise Exception("Cannot put this in lambda")
 
             def _accepted() -> None:
@@ -336,6 +395,8 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
 
             stem.rejected.connect(_throwing)
             stem.accepted.connect(_accepted)
+
+            self.next.setDisabled(False)
             stem.show()
 
         Process(target=_target).run()
@@ -356,8 +417,6 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                      model:    int,    # 0 is linear regression, 1 is decision tree
                      sampling: int     # 0 is oversampling, 1 is undersampling.
                    ) -> None:
-        # Todo : Add both a prompt showing progress and a final list to show the
-        # Todo : Probabilities in a decreasing order
         """
         --------------------------------------------------
                         Separating datasets
@@ -547,9 +606,9 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
 
         crossval_win.setWindowTitle("Cross Validation Window")
 
-        barrier = Barrier(1, timeout=0)
+        lock = Lock()
         def _closing(accepted: bool) -> None:
-            barrier.wait()
+            lock.acquire(timeout=0)
             crossval_win.close()
             trained_win.close()
             test_win.close()
@@ -608,7 +667,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
 
                         window: QDialog = Interval(li[index_first:index_second], first, second)
 
-                        window.accepted.connect(lambda event : (event.accept(), func(first)))
+                        window.accepted.connect(lambda ignored : func(first))
                         window.exec()
 
                         second += grow
@@ -631,22 +690,28 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
             del _outsideTraining, _outsideValidation
 
             cutoff_index: int = cutoff(map(lambda paper : paper.prob, dataset_list), final) + 1
-            with open(MainWindow.DEFAULT_FILE, "w") as file:
+
+            mkabsent(MainWindow.DEFAULT_DIR)
+            file: str = MainWindow.DEFAULT_DIR + "papers.txt"
+            with open(file, "w") as writable:
                 moving: Callable[..., Any] = dataset_list.__next__
                 def _write() -> str:
                     paper = moving()[1]
                     return paper.title + " " + str(paper.date) + " " + paper.jour + " " + str(paper.prob)
                 dataset_list.__next__ = _write
-                file.writelines(dataset_list[cutoff_index:])
+                writable.writelines(dataset_list[cutoff_index:])
 
             mbFactory(
                 "Values printed",
-                "The final values were printed at " + MainWindow.DEFAULT_FILE,
+                "The final values were printed at " + file,
                 QMessageBox.StandardButton.Ok,
                 QMessageBox.Icon.Information,
                 self
             ).exec()
+
             # Programs ends here
+            lock.release()
+            self.close()
 
         crossval_win.connect(_closing)
         trained_win.connect(_closing)
@@ -657,4 +722,4 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         test_win.show()
 
 main: QMainWindow = MainWindow()
-app.exec()
+sys.exit(app.exec())

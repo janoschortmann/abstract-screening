@@ -25,6 +25,14 @@ class Ui_mainwindow(object):
         if not mainwindow.objectName():
             mainwindow.setObjectName(u"mainwindow")
         mainwindow.resize(450, 370)
+        mainwindow.setStyleSheet(u".QPushButton:hover {\n"
+"    background-color: #64b5f6;\n"
+"    color: #fff;\n"
+"}\n"
+"\n"
+".QPushButton:pressed {\n"
+"    background-color: #bbdefb;\n"
+"}")
         self.verticalLayout = QVBoxLayout(mainwindow)
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.horizontalWidget = QWidget(mainwindow)
@@ -42,9 +50,10 @@ class Ui_mainwindow(object):
         sizePolicy.setHeightForWidth(self.find_but.sizePolicy().hasHeightForWidth())
         self.find_but.setSizePolicy(sizePolicy)
         self.find_but.setMinimumSize(QSize(80, 40))
+        self.find_but.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
         self.find_but.setAutoFillBackground(False)
-        self.find_but.setStyleSheet(u"background-color: rgb(80, 80, 80);\n"
-"border: 1px solid grey;")
+        self.find_but.setStyleSheet(u"border: 1px solid grey;\n"
+"margin-right: 5px;")
 
         self.top.addWidget(self.find_but)
 
@@ -110,8 +119,7 @@ class Ui_mainwindow(object):
         self.add_but.setMinimumSize(QSize(0, 25))
         self.add_but.setMaximumSize(QSize(100, 16777215))
         self.add_but.setAutoFillBackground(False)
-        self.add_but.setStyleSheet(u"background-color: rgb(115, 255, 115);\n"
-"font-color: white;")
+        self.add_but.setStyleSheet(u"background-color: rgb(115, 255, 115)")
 
         self.bottom.addWidget(self.add_but)
 
@@ -122,8 +130,7 @@ class Ui_mainwindow(object):
         self.remove_but.setMinimumSize(QSize(0, 25))
         self.remove_but.setMaximumSize(QSize(100, 16777215))
         self.remove_but.setAutoFillBackground(False)
-        self.remove_but.setStyleSheet(u"background-color: rgb(255, 90, 90);\n"
-"font-color: white;")
+        self.remove_but.setStyleSheet(u"background-color: rgb(255, 90, 90)")
 
         self.bottom.addWidget(self.remove_but)
 

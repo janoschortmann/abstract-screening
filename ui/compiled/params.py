@@ -23,7 +23,7 @@ class Ui_mainwindow(object):
     def setupUi(self, mainwindow):
         if not mainwindow.objectName():
             mainwindow.setObjectName(u"mainwindow")
-        mainwindow.resize(400, 300)
+        mainwindow.resize(400, 310)
         self.verticalLayout = QVBoxLayout(mainwindow)
         self.verticalLayout.setSpacing(10)
         self.verticalLayout.setObjectName(u"verticalLayout")
@@ -174,6 +174,11 @@ class Ui_mainwindow(object):
 
         self.verticalLayout.addWidget(self.save_info)
 
+        QWidget.setTabOrder(self.query_edit, self.api_edit)
+        QWidget.setTabOrder(self.api_edit, self.token_edit)
+        QWidget.setTabOrder(self.token_edit, self.thr_edit)
+        QWidget.setTabOrder(self.thr_edit, self.step_edit)
+        QWidget.setTabOrder(self.step_edit, self.save_info)
 
         self.retranslateUi(mainwindow)
 

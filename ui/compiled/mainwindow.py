@@ -15,9 +15,9 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QFont, QFontDatabase, QGradient, QIcon,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QMainWindow,
-    QPushButton, QSizePolicy, QSpacerItem, QSplitter,
-    QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QLayout,
+    QMainWindow, QPushButton, QSizePolicy, QSpacerItem,
+    QSplitter, QVBoxLayout, QWidget)
 
 class Ui_mainwindow(object):
     def setupUi(self, mainwindow):
@@ -29,6 +29,14 @@ class Ui_mainwindow(object):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(mainwindow.sizePolicy().hasHeightForWidth())
         mainwindow.setSizePolicy(sizePolicy)
+        mainwindow.setStyleSheet(u".QPushButton:hover {\n"
+"    background-color: #64b5f6;\n"
+"    color: #fff;\n"
+"}\n"
+"\n"
+".QPushButton:pressed {\n"
+"    background-color: #bbdefb;\n"
+"}")
         self.centralwidget = QWidget(mainwindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.verticalLayout = QVBoxLayout(self.centralwidget)
@@ -36,14 +44,15 @@ class Ui_mainwindow(object):
         self.info = QWidget(self.centralwidget)
         self.info.setObjectName(u"info")
         self.info.setMaximumSize(QSize(16777215, 16777215))
-        self.info.setStyleSheet(u"border: 1px solid grey;")
+        self.info.setStyleSheet(u"")
         self.top = QHBoxLayout(self.info)
-        self.top.setSpacing(0)
+        self.top.setSpacing(5)
         self.top.setObjectName(u"top")
         self.top.setContentsMargins(0, 0, 0, 0)
         self.params = QPushButton(self.info)
         self.params.setObjectName(u"params")
         self.params.setMinimumSize(QSize(80, 35))
+        self.params.setStyleSheet(u"border: 1px solid grey;")
         self.params.setFlat(True)
 
         self.top.addWidget(self.params)
@@ -51,6 +60,7 @@ class Ui_mainwindow(object):
         self.data = QPushButton(self.info)
         self.data.setObjectName(u"data")
         self.data.setMinimumSize(QSize(80, 35))
+        self.data.setStyleSheet(u"border: 1px solid grey;")
         self.data.setFlat(True)
 
         self.top.addWidget(self.data)
@@ -58,6 +68,7 @@ class Ui_mainwindow(object):
         self.about = QPushButton(self.info)
         self.about.setObjectName(u"about")
         self.about.setMinimumSize(QSize(80, 35))
+        self.about.setStyleSheet(u"border: 1px solid grey;")
         self.about.setAutoDefault(False)
         self.about.setFlat(True)
 
@@ -81,32 +92,30 @@ class Ui_mainwindow(object):
 
         self.body = QSplitter(self.centralwidget)
         self.body.setObjectName(u"body")
+        sizePolicy.setHeightForWidth(self.body.sizePolicy().hasHeightForWidth())
+        self.body.setSizePolicy(sizePolicy)
         self.body.setOrientation(Qt.Orientation.Vertical)
-        self.display = QWidget(self.body)
-        self.display.setObjectName(u"display")
-        sizePolicy.setHeightForWidth(self.display.sizePolicy().hasHeightForWidth())
-        self.display.setSizePolicy(sizePolicy)
-        self.body.addWidget(self.display)
         self.bottom = QSplitter(self.body)
         self.bottom.setObjectName(u"bottom")
         sizePolicy.setHeightForWidth(self.bottom.sizePolicy().hasHeightForWidth())
         self.bottom.setSizePolicy(sizePolicy)
-        self.bottom.setMaximumSize(QSize(16777215, 111))
+        self.bottom.setMaximumSize(QSize(16777215, 16777215))
         self.bottom.setOrientation(Qt.Orientation.Horizontal)
-        self.options = QWidget(self.bottom)
-        self.options.setObjectName(u"options")
-        self.bottom.addWidget(self.options)
         self.steps = QWidget(self.bottom)
         self.steps.setObjectName(u"steps")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
         sizePolicy1.setHorizontalStretch(0)
         sizePolicy1.setVerticalStretch(0)
         sizePolicy1.setHeightForWidth(self.steps.sizePolicy().hasHeightForWidth())
         self.steps.setSizePolicy(sizePolicy1)
+        self.steps.setMinimumSize(QSize(120, 120))
+        self.steps.setMaximumSize(QSize(16777215, 16777215))
         self.steps.setAutoFillBackground(False)
         self.steps.setStyleSheet(u"border: 1px solid grey;")
         self.verticalLayout_3 = QVBoxLayout(self.steps)
         self.verticalLayout_3.setObjectName(u"verticalLayout_3")
+        self.verticalLayout_3.setSizeConstraint(QLayout.SizeConstraint.SetDefaultConstraint)
+        self.verticalLayout_3.setContentsMargins(9, 9, -1, -1)
         self.step_lab = QLabel(self.steps)
         self.step_lab.setObjectName(u"step_lab")
         self.step_lab.setMaximumSize(QSize(16777215, 50))
@@ -131,6 +140,14 @@ class Ui_mainwindow(object):
         font1.setFamilies([u"Open Sans"])
         font1.setPointSize(12)
         self.next.setFont(font1)
+        self.next.setStyleSheet(u".QPushButton:hover {\n"
+"    background-color: rgb(100, 100, 100);\n"
+"    color: #fff;\n"
+"}\n"
+"\n"
+".QPushButton:pressed {\n"
+"	background-color: rgb(35, 35, 35);\n"
+"}")
 
         self.verticalLayout_3.addWidget(self.next)
 

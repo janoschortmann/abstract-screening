@@ -7,10 +7,14 @@ that concern file manipulation/objects referring to files.
 @version 0.4
 """
 
-from typing import Self
+from typing import Final, Self
 
+import re
+
+import os.path  as osp
 import datetime as dt
 
+CENTRAL: Final[str] = osp.expanduser("~/.ACAS/")
 type lab = str
 
 """
@@ -23,21 +27,20 @@ This will be used, for example, to store all given papers in an array
 for reference when showing them in the TableView and/or when doing further queries.
 
 @author  Thomas Gauthier
-@version 0.4
+@version 0.6
 """
 class Paper(object):
     # Could be done with enums, but there are a pain to work with in python...
-    LABELS: tuple[lab] = ("Unlabeled", "Accepted", "Rejected")
-
+    LABELS: Final[list[lab]] = ["Unlabeled", "Accepted", "Rejected"]
     # The possibilities of a given button
-    POSSIBILITIES: tuple[lab] = ("Labeled") + LABELS
+    POSSIBILITIES: Final[list[lab]] = ["Labeled"] + LABELS
 
     # Default initializer
     def __init__(
                 self:  Self,
                 title: str,
                 jour:  str,
-                date:  dt.date,
+                date:  dt.date | None,
                 abstr: str,
                 dire:  str,
                 doi:   str | None = None,
@@ -50,7 +53,7 @@ class Paper(object):
         self.dire:      str = dire
         self.doi:       str = doi
         self.label:     str = label
-        self.prob:    float = 0.
+        self.prob:    float = -1.
 
     """
     Changes the state of the label to the one received.
@@ -74,10 +77,24 @@ class Paper(object):
     """
     A static method used by the paper class for parsing a line.
     For any class that inherits from this, this function must be reimplemented.
+
+    The string received is in the format of a csv with backslashes before quotes.
     """
     @staticmethod
-    def parseLine(line: str) -> ...:
-        pass # Todo
+    def parseLine(line: str, dire: str) -> ...:
+        """
+        Matches all characters between the quotes that have either no character, one character
+        or that starts with something different from either " (for empty quotes) or , (for -"words", "other"-, where
+        -", "- is matched) and end with a character different from \ (for inner quotes).
+        """
+        splitted: list[str] = re.split("((?<=\")(([^,\"].*?[^\\])||.)(?=\"))", line)
+        return Paper(
+            splitted[0],
+            splitted[1],
+            splitted[2],
+            dt.datetime.strptime("%Y-%m-%d", splitted[3]),
+            splitted[4]
+        )
 
     """
     Basic hash funcion that returns the hash of this paper's title.

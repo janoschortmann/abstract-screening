@@ -4,7 +4,7 @@ File containing all instances of the windows defined with the xml files.
 It also connects the signals/callbacks of those windows.
 
 @author  Thomas Gauthier
-@version 0.1
+@version 0.2
 """
 from multiprocessing   import Process
 from pathlib           import Path
@@ -15,13 +15,13 @@ from PySide6.QtWidgets import (
                                 QWidget,
                                 QMessageBox,
                                 QProgressBar,
-                                QSizePolicy
+                                QSizePolicy,
+                                QTableView
                               )
-from PySide6.QtCore    import QEvent, QObject
+from PySide6.QtCore    import QEvent, Signal, SignalInstance
 from PySide6.QtGui     import QStandardItemModel
 
-from python.src.utils.files     import Paper
-from python.src.utils.functions import toggler
+from python.src.utils.files     import Paper, CENTRAL
 from ui.compiled                import (
                                          data,
                                          find,
@@ -36,12 +36,11 @@ from ui.compiled                import (
 from ui.compiled.options        import first, second, third
 from ui.display.entities        import (
                                          FindingView,
+                                         FindingModel,
                                          PaperTableView,
-                                         appendParams,
                                          mbFactory,
                                          errorFactory
-                                        )
-
+                                       )
 from nltk.corpus                     import stopwords
 from nltk.stem                       import PorterStemmer
 from nltk.tokenize                   import wordpunct_tokenize
@@ -51,13 +50,19 @@ from sklearn.feature_extraction.text import CountVectorizer
 from urllib.parse import quote
 import aiohttp
 
+# Relative libs
+import python.src.utils.functions as funcs
+
+# Internal libs
+import csv
 import json
 import math
 import random
 import string
 
-import numpy   as np
+# Renamming
 import os.path as osp
+import numpy   as np
 import pandas  as pd
 
 """
@@ -88,12 +93,9 @@ class Interval(QDialog, interval.Ui_mainwindow):
 """
 The main window after the stem has been called.
 
-It could be put also in the stem window, but since
-it only appears if the user has already chosen their stems,
-I believe it is better to only put it in another QDialog for, then,
-chaining QDialogs together.
-
 This is truly a barebone implementation and does nothing special on its own.
+
+It will only get the minimial number of stems required for the stem to be accepted.
 
 @author  Thomas Gauthier
 @version 0.0
@@ -108,12 +110,12 @@ class Frequency(QDialog, frequency.Ui_mainwindow):
 
 """
 A basic class that represents the list of the stem
-given with the "frequency.py" script.
+given with the previous "frequency.py" script.
 
 Note that it is up to the caller to synchronize
 with the given list of stems afterwards (note that
 if the instance of data is passed as a reference and
-not a copy, this will automatically do it).
+not a copy, this will automatically clone it).
 
 Originally, it was figured that the user could add their own stems.
 Unfortunately, I see two problems with that.
@@ -122,7 +124,7 @@ The first one is the optimization.
 Indeed, if the user adds their own stems, that would mean to recalculate whether a given
 stem is in the database, which would be quite expensive.
 
-The second one is of utility. Indeed, if the user must add some keyword relative to their
+The second one is of utility. If the user must add some keyword relative to their
 field, that would imply that, for all the given papers, not a single one included
 the one which interested them, and, in most likelyhood, would not influence the AI,
 which bases itself on the most predominant words already found.
@@ -133,7 +135,7 @@ from this program. For anywho who tries to add it back, go ahead, but I seriousl
 doubt about its efficacy.
 
 @author  Thomas Gauthier
-@version 0.0
+@version 0.1
 """
 @final
 class Stem(QDialog, stem.Ui_mainwindow):
@@ -144,7 +146,7 @@ class Stem(QDialog, stem.Ui_mainwindow):
         self.setupUi(self)
 
         # Received a numpy ndarray, but removing and appending is faster in a list
-        self.stems: list[str] = list(data)
+        self.__stems: list[str] = list(data)
 
         # ListView manipulation
         self.__model: QStandardItemModel = QStandardItemModel()
@@ -159,20 +161,17 @@ This will only show, based on the xml file, the relevant information
 for a given paper and will, based on the response, accept or reject the given paper.
 
 @author  Thomas Gauthier
-@version 0.0
+@version 0.1
 """
 @final
-class PaperView[T](QWidget, paper.Ui_mainwindow):
-    # The default constructor which receives a given paper to show
-    def __init__(self: Self, paper: T, parent: QWidget | None = None) -> None:
-        if not isinstance(T, Paper): raise TypeError("Not instance of the Paper class")
+class PaperView(QWidget, paper.Ui_mainwindow):
+    changed: Signal = Signal()
 
+    # The default constructor which receives a given paper to show
+    def __init__(self: Self, paper: Paper, parent: QWidget | None = None) -> None:
         # Default initialization
         super().__init__(parent)
         self.setupUi(self)
-
-        # Custom variables
-        self.changed: QObject = QObject()
 
         # Shortcut
         short: Callable[[Any], None] = lambda var: str(var) if var else "Unknown"
@@ -185,27 +184,25 @@ class PaperView[T](QWidget, paper.Ui_mainwindow):
         self.date_inp.setText(short(paper.date))
 
         # Callbacks
-        self.yes_but.connect(
-            lambda event: (
-                event.accept(),
+        self.yes_but.clicked.connect(
+            lambda ignored: (
                 ((paper.give("Accepted"), self.changed.emit()) if paper.label != "Accepted" else None),
                 self.close()
             )
         )
-        self.no_but.connect(
-            lambda event: (
-                event.accept(),
+        self.no_but.clicked.connect(
+            lambda ignored: (
                 ((paper.give("Rejected"), self.changed.emit()) if paper.label != "Rejected" else None),
                 self.close()
             )
         )
-        self.cancel_but.connect(lambda event: (event.accept(), self.close()))
+        self.cancel_but.clicked.connect(lambda ignored: self.close())
 
 """
 Default implementation of the parameters window.
 
 @author  Thomas Gauthier
-@version 0.1
+@version 0.2
 """
 @final
 class Parameters(QWidget, params.Ui_mainwindow):
@@ -218,7 +215,10 @@ class Parameters(QWidget, params.Ui_mainwindow):
         "token":   "Token",
         "step":     "Step"
     }
-    FILE:   Final[str] = "~/.ACAS/files/params.json"
+    DIR:    Final[str] = CENTRAL + "files/"
+    FILE:   Final[str] = DIR + "params.json"
+
+    writing: Signal = Signal(bool)
 
     # Default initializer
     def __init__(self: Self, parent: QWidget | None = None) -> None:
@@ -227,11 +227,10 @@ class Parameters(QWidget, params.Ui_mainwindow):
         self.setupUi(self)
 
         # Events
-        self.writing: QObject = QObject()
         self.writing.connect(self.setDisabled)
 
         # Callback
-        self.save_info.clicked.connect(self.print_info)
+        self.save_info.clicked.connect(self.printInfo)
 
         if osp.exists(Parameters.FILE) and osp.isfile(Parameters.FILE):
             with open(Parameters.FILE) as file:
@@ -258,8 +257,9 @@ class Parameters(QWidget, params.Ui_mainwindow):
         self.setEnabled(not state)
 
     # Prints the data in the line edits to the json file
-    def printInfo(self: Self, event: QEvent) -> None:
+    def printInfo(self: Self) -> None:
         self.writing.emit(True)
+        funcs.mkabsent(Parameters.DIR)
         with open(Parameters.FILE, mode="w") as file:
             file.writelines(
                 json.dumps(
@@ -275,12 +275,9 @@ class Parameters(QWidget, params.Ui_mainwindow):
             )
         self.save_info.setText("Saved!")
         self.writing.emit(False)
-        event.accept()
-
 
 """
-Dialog window representing the statistics
-of the trained AI.
+Dialog window representing the statistics of the trained AI.
 
 The arguments passed are:
 "an" - Actual Negatives
@@ -297,10 +294,12 @@ When pressed "save", will emit a signal with object "True"
 When pressed "cancel", will emit a signal with object "False"
 
 @author  Thomas Gauthier
-@version 0.0
+@version 0.1
 """
 @final
 class Statistics(QDialog, stats.Ui_mainwindow):
+    result: Signal = Signal(bool)
+
     # Initializer
     def __init__[**P](self: Self, parent: QWidget | None = None, **args: P.kwargs) -> None:
         super().__init__(parent)
@@ -320,21 +319,24 @@ class Statistics(QDialog, stats.Ui_mainwindow):
         self.prec_show.setText(shortcut("pre"))
         self.recall_show.setText(shortcut("rec"))
 
-        self.decision_box.accepted.connect(lambda event: (event.accept(), self.emit(True)))
-        self.decision_box.rejected.connect(lambda event: (event.accept(), self.emit(False)))
+        self.decision_box.accepted.connect(lambda ignored: self.result.emit(True))
+        self.decision_box.rejected.connect(lambda ignored: self.result.emit(False))
 
 """
-A window for finding documents and removing them.
-Is used, for example, in the FindTableView.
+A window for finding documents and removing them. Is used, for example,
+in the FindTableView.
 
-Note that it does not directly access the data
-but only emits signals for the table to connect to.
+Note that it does not directly access the data but only emits signals
+for the table to connect to.
 
 @author  Thomas Gauthier
-@version 0.1
+@version 0.2
 """
 @final
 class Find(QWidget, find.Ui_mainwindow):
+    remove_signal: Signal = Signal()
+    find_signal:   Signal = Signal()
+
     # Default initializer
     def __init__(self: Self, title: str | None = None, parent: QWidget | None = None) -> None:
         #Initializing
@@ -345,20 +347,16 @@ class Find(QWidget, find.Ui_mainwindow):
         # Custom title to differentiate different find windowr
         if title is not None: self.setWindowTitle(title)
 
-        # Signals
-        self.remove_signal: QObject = QObject()
-        self.find_signal:   QObject = QObject()
-
         # Callbacks
-        self.find_but.clickled.clicked.connect(self.find_signal.emit)
+        self.find_but.clicked.connect(self.find_signal.emit)
         self.clear_search.clicked.connect(self.remove_signal.emit)
         self.clear_edits.clicked.connect(self.clear)
 
     @override
     def setEnabled(self: Self, state: bool) -> None:
-        self.find_but.setEnabled(state)
         self.clear_search.setEnabled(state)
         self.clear_edits.setEnabled(state)
+        self.find_but.setEnabled(state)
 
     @override
     def setDisabled(self: Self, state: bool) -> None:
@@ -397,15 +395,13 @@ That imply that this manages all the data by itself.
 It also supports multithreading. See method signature and definition
 for a specific method.
 
-Note that T must be an instance of the Paper class.
-
 @author  Thomas Gauthier
-@version 0.2
+@version 0.3
 """
 @final
-class Data[T](QWidget, data.Ui_mainwindow):
+class Data(QWidget, data.Ui_mainwindow):
     # Main file where the dumps are..... well..... dumped
-    CORE_DUMP: Final[str] = "~/.ACAS/dumps/dump.txt"
+    CORE_DUMP: Final[str] = CENTRAL + "dumps/"
 
     """
     An inner class used to link up the different kinds of
@@ -418,79 +414,79 @@ class Data[T](QWidget, data.Ui_mainwindow):
         @overload
         def __init__(self: Self) -> None:
             super().__init__()
-            self.leaser: list[tuple[QObject, list[T]] | None] = []
-            self.emiters: set[QObject] = {}
+            self.leaser: list[tuple[SignalInstance, list] | None] = []
+            self.emiters: set[SignalInstance] = {}
 
         @override
-        def __init__(self: Self, iterable: Iterable[tuple[QObject, list[T]] | None, T] | Iterable[T], /) -> None:
+        def __init__(self: Self, iterable: Iterable[tuple[tuple[SignalInstance, list] | None, Paper]] | Iterable, /) -> None:
             super.__init__()
-            self.leaser: list[tuple[QObject, list[T]] | None] = []
-            self.emiters: set[QObject] = {}
+            self.leaser: list[tuple[SignalInstance, list] | None] = []
+            self.emiters: set[SignalInstance] = {}
             self.extend(iterable)
 
         @override
-        def copy(self: Self) -> list[T]:
-            clone: Data.JoinedList[T] = []
+        def copy(self: Self) -> list:
+            clone: Data.JoinedList = []
             for item in range(len(self)): clone.append((self[item], self.leaser[item]))
             return clone
 
         @override
-        def append(self: Self, instance: T) -> Never:
+        def append(self: Self, instance: Paper) -> Never:
             self.append((None, instance))
 
         @overload
-        def append(self: Self, instance: T, lease: tuple[QObject, list[T]] | None = None, /) -> None:
+        def append(self: Self, instance: Paper, lease: tuple[SignalInstance, list] | None = None, /) -> None:
             super().append(instance)
             self.leaser.append(lease)
             self.emiters.add(lease)
 
         @overload
-        def append(self: Self, combined: tuple[tuple[QObject, list[T]] | None, T], /) -> None:
+        def append(self: Self, combined: tuple[tuple[SignalInstance, list] | None, Paper], /) -> None:
             super().append(combined[1])
             self.leaser.append(combined[0])
             self.emiters.add(combined[0])
 
         @override
-        def extend(self: Self, iterable: Iterable[tuple[QObject, list[T]] | None, T] | Iterable[T], /) -> None:
+        def extend(self: Self, iterable: Iterable[tuple[tuple[SignalInstance, list] | None, Paper]] | Iterable, /) -> None:
             for item in iterable: self.append(item)
 
         @override
-        def pop(self: Self, index: Any = -1, /) -> tuple[tuple[QObject, list[T]] | None, T]:
-            val: tuple[tuple[QObject, list[T]]] | None = self.leaser.pop(index)
+        def pop(self: Self, index: Any = -1, /) -> tuple[tuple[SignalInstance, list] | None, Paper]:
+            val: tuple[tuple[SignalInstance, list]] | None = self.leaser.pop(index)
             self.emiters.add(val)
             return (val, super().pop(index))
 
         @override
-        def insert(self: Self, index: Any, obj: T, /) -> Never:
+        def insert(self: Self, index: Any, obj: Paper, /) -> Never:
             raise self.insert(index, (None, obj))
 
         @overload
-        def insert(self: Self, index: Any, obj: T, lease: tuple[QObject, list[T]] | None = None, /) -> Never:
+        def insert(self: Self, index: Any, obj: Paper, lease: tuple[SignalInstance, list] | None = None, /) -> Never:
             super().insert(index, obj)
             self.leaser.insert(index, lease)
             self.emiters.add(lease)
 
         @overload
-        def insert(self, index: Any, obj: tuple[tuple[QObject, list[T]] | None, T], /) -> Never:
+        def insert(self, index: Any, obj: tuple[tuple[SignalInstance, list] | None, Paper], /) -> Never:
             super().insert(index, obj[1])
             self.leaser.insert(index, obj[0])
             self.emiters.add(obj[0])
 
         @override
-        def remove(self: Self, value: T) -> None:
+        def remove(self: Self, value: Paper) -> None:
             index: int = super().index(value)
             super().pop(index)
 
-            obj: tuple[QObject, list[T]] | None = self.leaser.pop(index)
+            obj: tuple[SignalInstance, list] | None = self.leaser.pop(index)
             if obj[0] is not None:
                 obj[1].pop(index)
                 self.emiters.add(obj[0]) # Faster than calling each time the emit()
 
         @overload
-        def remove(self: Self, other: tuple[tuple[QObject, list[T]] | None, T]) -> None:
+        def remove(self: Self, other: tuple[tuple[SignalInstance, list] | None, Paper]) -> None:
             self.remove(other[1])
 
-        def remove_all(self: Self, other: tuple[tuple[QObject, list[T]] | None, T] | T) -> None:
+        def remove_all(self: Self, other: tuple[tuple[SignalInstance, list] | None, Paper] | Paper) -> None:
             for item in other: self.remove(item)
 
         @override
@@ -498,21 +494,21 @@ class Data[T](QWidget, data.Ui_mainwindow):
             raise Exception("Not implemented")
 
         @override
-        def __iter__(self: Self) -> Iterator[tuple[tuple[QObject, list[T]] | None, T]]:
+        def __iter__(self: Self) -> Iterator[tuple[tuple[SignalInstance, list] | None, Paper]]:
             self.counter: int = 0
             return self
 
         @override
-        def __next__(self: Self) -> tuple[tuple[QObject, list[T]] | None, T]:
+        def __next__(self: Self) -> tuple[tuple[SignalInstance, list] | None, Paper]:
             if self.counter == len(self):
                 del self.counter
                 raise StopIteration()
-            item: tuple[tuple[QObject, list[T]] | None, T]  = self[self.counter]
+            item: tuple[tuple[SignalInstance, list] | None, Paper]  = self[self.counter]
             self.counter += 1
             return item
 
         @override
-        def __getitem__(self: Self, index: Any, /) -> tuple[tuple[QObject, list[T]] | None, T]:
+        def __getitem__(self: Self, index: Any, /) -> tuple[tuple[SignalInstance, list] | None, Paper]:
             return (self.leaser[index], super()[index])
 
         # The rest of the methods will be the same
@@ -520,6 +516,11 @@ class Data[T](QWidget, data.Ui_mainwindow):
         def emit(self: Self) -> None:
             for emiter in self.emiters:
                 if emiter is not None: emiter.emit()
+
+    being_modified:    Signal = Signal(bool)
+    validation_signal: Signal = Signal()
+    training_signal:   Signal = Signal()
+    dataset_signal:    Signal = Signal()
 
     # Default constructor
     def __init__(self: Self, parent: QWidget | None = None) -> None:
@@ -529,22 +530,29 @@ class Data[T](QWidget, data.Ui_mainwindow):
         self.find_window: Find = Find("Finder for Data")
 
         # Multithreading and parallelism
-        self.being_modified: QObject = QObject()
         self.__lock: Lock = Lock()
 
         # Callbacks
-        self.add_but.clicked.connect(lambda event: Process(target=self.add, args=(event,)).run())
-        self.remove_but.clicked.connect(lambda event: Process(target=self.remove, args=(event,)).run())
-        self.find_but.clicked.connect(toggler(self.findWindow))
+        self.add_but.clicked.connect(lambda ignored: Process(target=self.add).run())
+        self.remove_but.clicked.connect(lambda ignored: Process(target=self.remove).run())
+        self.find_but.clicked.connect(funcs.toggler(self.find_window))
 
-        # Data attributes which are represented as a tuple of a QObject and list
+        # Data attributes which are represented as a tuple of a Signal and list
         # This was done for the signals of the Qt API
-        self.validation: tuple[QObject, list[T]] = (QObject(), [])
-        self.training:   tuple[QObject, list[T]] = (QObject(), [])
-        self.dataset:    tuple[QObject, Data.JoinedList[T]] = (QObject(), [])
+        self.validation: tuple[SignalInstance, list] = (self.validation_signal, [])
+        self.training:   tuple[SignalInstance, list] = (self.training_signal, [])
+        self.dataset:    tuple[SignalInstance, Data.JoinedList] = (self.dataset_signal, [])
 
         # Widgets
-        self.__papers: FindingView = FindingView(self.dataset[1])
+        self.__papers: FindingView = FindingView(
+            FindingModel(
+                self.dataset[1],
+                headers=["Title", "Journal", "Date"],
+                columns=["title", "jour", "date"]
+            ),
+            QTableView(),
+            self
+        )
         self.specifier.addItems(["Training", "Validation", "None"])
 
         # Connect callbacks in the find window
@@ -568,17 +576,16 @@ class Data[T](QWidget, data.Ui_mainwindow):
 
     @override
     def setEnabled(self: Self, state: bool) -> None:
+        self.remove_button.setEnabled(state)
         self.find_window.setEnabled(state)
         self.add_button.setEnabled(state)
-        self.remove_button.setEnabled(state)
 
     @override
     def setDisabled(self: Self, state: bool) -> None:
         return self.setEnabled(not state)
 
     """
-    Function used to access the papers and call a function
-    upon them.
+    Function used to access the papers and call a function upon them.
 
     Will automatically set this in the disabled state until
     the callable received finishes.
@@ -589,7 +596,7 @@ class Data[T](QWidget, data.Ui_mainwindow):
     """
     async def accessPapers(self: Self, function: Callable[[FindingView], None], wait: bool = True) -> bool:
         # Note that, in theory, the result shouldn't be necessary, since you could
-        # Very well just get the state from the QObject of this widget, but this could still be useful in the future
+        # Very well just get the state from the Signal of this widget, but this could still be useful in the future
         res: bool = self.__lock.acquire(wait)
         if not res: return res
 
@@ -605,8 +612,7 @@ class Data[T](QWidget, data.Ui_mainwindow):
         return res
 
     """
-    A static useful method used for dumping the failures
-    based on the constant CORE_DUMP in Data.
+    A static useful method used for dumping the failures based on the constant CORE_DUMP in Data.
 
     @author  Thomas Gauthier
     @version 0.0
@@ -614,7 +620,8 @@ class Data[T](QWidget, data.Ui_mainwindow):
     @staticmethod
     def dump[Q](failures: list[Q], parent: QWidget | None = None) -> None:
         if not failures:
-            with open(Data.CORE_DUMP, mode="w") as file:
+            funcs.mkabsent(Data.CORE_DUMP)
+            with open(Data.CORE_DUMP + "dump.txt", mode="w") as file:
                 file.writelines(failures)
 
             mbFactory(
@@ -626,13 +633,13 @@ class Data[T](QWidget, data.Ui_mainwindow):
             ).show()
 
     # Default callback for the adder
-    async def add(self: Self, event: QEvent, text: str | None = None,  path: str | None = None) -> None:
+    async def add(self: Self, text: str | None = None,  path: str | None = None) -> None:
         _path: Path = Path(self.path.text() if path is not None else path)
-        text:  str = self.specifier.itemText() if text is None else text
+        text:   str = self.specifier.itemText() if text is None else text
 
         # Could also be done with a dictionary
         # But I don't feel like it
-        dataset: tuple[QObject, list[T]] = None
+        dataset: tuple[SignalInstance, list] | None = None
         match text:
             case "Validation": dataset = self.validation
             case "Training":   dataset = self.training
@@ -644,11 +651,10 @@ class Data[T](QWidget, data.Ui_mainwindow):
             errorFactory("Error in adding", ex.message + " in " + _path.absolute()).show()
 
         Data.dump(failures, self)
-        event.accept()
 
     """
     A method used for recursive adding.
-    Returns a list of lines which could not be pared.
+    Returns a list of lines which could not be parsed.
 
     This function is not blocking since it would add to the overall cost when
     there are lots of tiny files (espectially with RLock), thus it is the
@@ -658,7 +664,7 @@ class Data[T](QWidget, data.Ui_mainwindow):
     and then remove all hits), but this is faster since you don't need to append to a list
     and then remove it, which would bring the runtime at twice the time.
     """
-    async def _recursiveAdd(self: Self, dataset: tuple[QObject, list[T]] | None, path: Path) -> list[tuple[Path, int]]:
+    async def _recursiveAdd(self: Self, dataset: tuple[SignalInstance, list] | None, path: Path) -> list[tuple[Path, int]]:
         failures: list[tuple[Path, int]] = []
         if path.is_dir():
             for other in path.iterdir(): failures.extend(self._recursiveAdd(other.absolute()))
@@ -667,13 +673,13 @@ class Data[T](QWidget, data.Ui_mainwindow):
             if not path.suffix == ".csv" and not path.suffix == ".txt": return
 
             with open(path) as file:
-                parsed: T | None = None
+                parsed: Paper | None = None
                 count:  int = -1
 
                 for line in file.readlines():
                     count += 1
 
-                    try: parsed = T.parseLine(line)
+                    try: parsed = Paper.parseLine(line, str(path))
                     except:
                         failures.append((path, count))
                         continue
@@ -703,7 +709,7 @@ class Data[T](QWidget, data.Ui_mainwindow):
 
     # Default callback for the remover
     # Will show a QMessageBox based on the removal process
-    async def remove(self: Self, event: QEvent, path: str | None = None) -> None:
+    async def remove(self: Self, path: str | None = None) -> None:
         _path: Path = Path(self.path.text() if path is not None else path)
 
         failures: list[tuple[Path, str, int]] = []
@@ -712,7 +718,6 @@ class Data[T](QWidget, data.Ui_mainwindow):
             errorFactory("Error in removing", ex.message + " in " + _path.absolute()).show()
 
         Data.dump(failures, self)
-        event.accept()
 
     """
     A method used for recursive adding.
@@ -736,19 +741,19 @@ class Data[T](QWidget, data.Ui_mainwindow):
             if not path.suffix == ".csv" and not path.suffix == ".txt": return
 
             with open(path) as file:
-                parsed: T | None = None
+                parsed: Paper | None = None
                 count:  int = -1
                 for line in file.readlines():
                     count += 1
 
                     # Must do this manually since the remove function will
                     # Search for a tuple and not an element
-                    try: parsed = T.parseLine(line)
+                    try: parsed = Paper.parseLine(line, str(path))
                     except:
                         failures.append((path, "parsing", count))
                         continue
 
-                    removal: tuple[tuple[QObject, list[T]] | None, T] | None = None
+                    removal: tuple[tuple[SignalInstance, list] | None, Paper] | None = None
                     for element in self.dataset[1]:
                         if element[1] == parsed:
                             removal = element
@@ -771,13 +776,13 @@ class Data[T](QWidget, data.Ui_mainwindow):
     except it doesn't need to append the results first, which decreases the
     time spent on the function by a factor of 2.
     """
-    async def parse(self: Self, path: Path) -> tuple[list[tuple[Path, int]], list[T]]:
+    async def parse(self: Self, path: Path) -> tuple[list[tuple[Path, int]], list]:
         failures: list[tuple[Path, int]] = []
-        results:  list[T] = []
+        results:  list = []
 
         if path.is_dir():
             for other in path.iterdir():
-                data: tuple[list[tuple[Path, int]], list[T]] = self.parse(other.absolute())
+                data: tuple[list[tuple[Path, int]], list] = self.parse(other.absolute())
                 failures.extend(data[0])
                 results.extend(data[1])
         elif path.is_file():
@@ -785,13 +790,13 @@ class Data[T](QWidget, data.Ui_mainwindow):
             if not path.suffix == ".csv" and not path.suffix == ".txt": return
 
             with open(path) as file:
-                parsed: T | None = None
+                parsed: Paper | None = None
                 count:   int = -1
 
                 for line in file.readlines():
                     count += 1
 
-                    try: parsed = T.parseLine(line)
+                    try: parsed = Paper.parseLine(line, str(path))
                     except:
                         failures.append((path, count))
                         continue
@@ -817,27 +822,28 @@ a list of the stems in case of a crash.
 Note that T must be an instance of the Paper class.
 
 @author  Thomas Gauthier, Janosch Ortmann
-@version 0.0
+@version 0.1
 """
 @final
-class Loading[T](QDialog, loading.Ui_mainwindow):
+class Loading(QDialog, loading.Ui_mainwindow):
     # Default write location of the stems
-    DEFAULT_WRITE: Final[str] = "~/.ACAS/results/stems.txt"
+    DEFAULT_WRITE: Final[str] = CENTRAL + "results/"
+
+    done: Signal = Signal()
 
     # Default initialization
     def __init__(
                  self:      Self,
-                 samples:   list[T],
+                 samples:   list,
                  min_words: int = 3,
                  parent:    QWidget | None = None
                 ) -> None:
-        if not isinstance(T, Paper): raise Exception("T is not instance of Paper")
         # Regular initialize
         super().__init__(parent)
         self.setupUi(self)
 
         self.__min_words:   int = min_words
-        self.__samples: list[T] = samples # Not copied here since it will be afterwards
+        self.__samples: list = samples # Not copied here since it will be afterwards
 
     def getStems(self: Self) -> None:
         # This is why this is not synchronized
@@ -956,22 +962,23 @@ class Loading[T](QDialog, loading.Ui_mainwindow):
 
         # Shortcut so that you won't have to do this in the MainWindow
         self.grams_found: np.ndarray = np.concatenate((uni_sample_found, bi_found, tri_found), axis=1)
-        pd.DataFrame(self.grams).to_csv(Loading.DEFAULT_WRITE, sep='\n')
+        funcs.mkabsent(Loading.DEFAULT_WRITE)
+        pd.DataFrame(self.grams).to_csv(Loading.DEFAULT_WRITE + "stems.txt", sep='\n')
 
         self.process.setText("Finished")
         self.bar.setValue(100)
 
         # Removing introspection funnies
         self.__samples.__getitem__ = moving
-        self.emit()
+        self.done.emit()
 
 """
 Widget that represent the first parameters.
 
-This class can also query from the Scopus database, but be advise
+This class can also query from the Scopus database, but be advised
 that since this does not control the data (that is the role of the Data class),
 that means that, after querying, it will emit information about its current state
-so that the main window can latch on it.
+so that the main window can latch on it widhout doing any modifications to the stems.
 
 The querying starts a new process
 
@@ -981,7 +988,7 @@ The querying starts a new process
 @final
 class First(QWidget, first.Ui_first_option):
     # The default setting for when the directory isn't specified
-    DEFAULT_QUERY: Final[str] = "~/.ACAS/query/"
+    DEFAULT_QUERY: Final[str] = CENTRAL + "query/"
     # The number of parallel processing threads
     POOL_COUNT:    Final[int] = 4
     # Number of queries per iteration
@@ -989,23 +996,24 @@ class First(QWidget, first.Ui_first_option):
     # The name of the files that will be printed
     FILES: tuple[str] = ("validation.csv", "citations.csv", "sample.csv")
 
+    querying:      Signal = Signal(bool)
+    remove_signal: Signal = Signal()
+    add_signal:    Signal = Signal()
+
     # Default initializer
     def __init__(self: Self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setupUi(self)
 
         self.__lock:      Lock = Lock()
-        self.querying: QObject = QObject()
-
-        self.remove_signal: QObject = QObject()
-        self.add_signal:    QObject = QObject()
-
         # Shortcut for declaring the processes
-        shortcut: Callable[[QObject], None] = lambda signal, event: Process(target=(lambda : (event.accept(), self.query(), signal.emit()))).run()
+        shortcut: Callable[[SignalInstance, QEvent], None] = lambda signal: Process(
+            target=(lambda : (self.query(), signal.emit()))
+        ).run()
 
         # Asynchronously querying
-        self.remove.clicked.connect(lambda event: shortcut(self.remove_signal, event))
-        self.add.clicked.connect(lambda event: shortcut(self.add_signal, event))
+        self.remove.clicked.connect(lambda ignored: shortcut(self.remove_signal))
+        self.add.clicked.connect(lambda ignored: shortcut(self.add_signal))
 
         # Deactivate multiple querying at the same time
         self.querying.connect(self.setDisabled)
@@ -1084,7 +1092,7 @@ class First(QWidget, first.Ui_first_option):
             return
         del bad_sample
 
-        params: dict[str, str] = appendParams()
+        params: dict[str, str] = funcs.appendParams()
 
         """
         --------------------------------------------------
@@ -1161,7 +1169,7 @@ class First(QWidget, first.Ui_first_option):
 
         """
         Notice that, here, we do not delete the papers that are in the validation
-        and the training dataset. That is, for two reasons.
+        and the training dataset. That is, for two reasons:
 
         First of which, in any case, it will be added back to the main dataset with
         all the other papers because of how the add method works in the Data class.
@@ -1173,7 +1181,7 @@ class First(QWidget, first.Ui_first_option):
         You can modify this, if needed, to remove from the dataset the papers that are in the validation
         and training, but note that if this is done, the add method in the Data class must also be modified.
         """
-        # Please leave the variable used once, it's easier to understand the code this way
+        # Please leave the variables used once, it's easier to understand the code this way
         number: Final[int] = len(citations)
 
         sample_index: list[int] = random.sample(range(number), math.ceil(number * sample_per))
@@ -1184,8 +1192,9 @@ class First(QWidget, first.Ui_first_option):
 
         del number, sample_index, validation_index
 
+        funcs.mkabsent(First.DEFAULT_QUERY)
         # Shortcut
-        printer: Callable[..., None] = lambda path, data: pd.DataFrame(data).to_csv(path)
+        printer: Callable[..., None] = lambda path, data: pd.DataFrame(data).to_csv(path, quoting=csv.QUOTE_ALL)
 
         printer(self.directory + First.FILES[0], validation)
         printer(self.directory + First.FILES[1], citations)
@@ -1204,19 +1213,18 @@ Class representing the second window.
 Like all other classes, will emit signals representing which actions to chose.
 
 @author  Thomas Gauthier
-@version 0.0
+@version 0.1
 """
 @final
 class Second(QWidget, second.Ui_second_option):
+    clear_signal: Signal = Signal()
+    plot_signal:  Signal = Signal()
+
     # Default initializer
     def __init__(self: Self, parent: QWidget | None = None) -> None:
         # Classic setup
         super().__init__(parent)
         self.setupUi(self)
-
-        # Signals
-        self.clear_signal: QObject = QObject()
-        self.plot_signal:  QObject = QObject()
 
         self.clear.clicked.connect(self.clear_signal.emit)
         self.plot.clicked.connect(self.plot_signal.emit)
@@ -1255,9 +1263,9 @@ class Second(QWidget, second.Ui_second_option):
                 if value < 0 or value > 1: raise Exception()
 
             if unverified_report["param1"] > unverified_report["param2"]: raise Exception()
-        except:
-            unverified_report = None
+        except *Exception as error:
             errorFactory("Wrong parameters", "Parameters entered are wrong", self).show()
+            raise error
 
         return unverified_report
 
@@ -1284,21 +1292,22 @@ class Third(QWidget, third.Ui_third_option):
         unverified_report: dict[str, Any] | None = None
 
         # Shortcut used to quickly verify the information
-        def testing[T](name: str, param: T, criteria: Callable[[T], bool] | None = None) -> None:
+        def testing(name: str, param: Paper, criteria: Callable[..., bool] | None = None) -> None:
             nonlocal unverified_report
             if criteria and not criteria(param): raise Exception()
             else: unverified_report[name] = param
 
         try:
-            testing("pos_ratio", float(self.pos_edit.text()),  lambda x: x > 0 and x < 1)
-            testing("size",      float(self.size_edit.text()), lambda x: x > 0 and x < 1)
-            testing("splits",    int(self.splits_edit.text()), lambda x: x >= 0)
+            testing("pos",    float(self.pos_edit.text()),  lambda x: x > 0 and x < 1)
+            testing("size",   float(self.size_edit.text()), lambda x: x > 0 and x < 1)
+            testing("splits", int(self.splits_edit.text()), lambda x: x >= 0)
 
             text: str = self.seed_edit.text()
-            unverified_report["seed"] = int(text) if text else 0
-            unverified_report["model"] = self.model_box.currentIndex()
+            unverified_report["seed"]     = int(text) if text else 0
+            unverified_report["model"]    = self.model_box.currentIndex()
             unverified_report["sampling"] = self.sampling_box.currentIndex()
-        except: errorFactory("Wrong parameters", "Parameters entered are wrong", self).show()
+        except *Exception as error:
+            errorFactory("Wrong parameters", "Parameters entered are wrong", self).show()
+            raise error
 
         return unverified_report
-

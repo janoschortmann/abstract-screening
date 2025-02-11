@@ -1,5 +1,7 @@
 {
-    "Limit": "",
-    "API Key": "",
-    "Token": ""
+    "Limit": "A",
+    "API Key": "B",
+    "Token": "C",
+    "Threshold": "D",
+    "Step": "E"
 }

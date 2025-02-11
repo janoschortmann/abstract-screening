@@ -347,6 +347,19 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>title_edit</tabstop>
+  <tabstop>journal_edit</tabstop>
+  <tabstop>from_date</tabstop>
+  <tabstop>to_date</tabstop>
+  <tabstop>doi_edit</tabstop>
+  <tabstop>label_box</tabstop>
+  <tabstop>title_regex</tabstop>
+  <tabstop>journal_regex</tabstop>
+  <tabstop>find_but</tabstop>
+  <tabstop>clear_edits</tabstop>
+  <tabstop>clear_search</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

@@ -4,11 +4,9 @@ File containing all sorts of useful functions,
 But doesn't hold any classes or anything relating to a specific field.
 
 @author  Thomas Gauthier
-@version 0.1
+@version 0.2
 """
-from ctypes    import _Pointer, pointer # Bad practice, but needed
-from threading import Lock
-from typing    import Any, Callable, Self, Iterable
+from typing import Any, Callable, Iterable
 
 """
 Will modify the list given as argument to have unique elements inside,
@@ -96,22 +94,19 @@ Basic factory for toggling windows.
 Overrides the close event with a hidden event to not create new windows each time.
 
 @author  Thomas Gauthier
-@version 1.0
+@version 1.1
 """
 from PySide6.QtWidgets import QWidget
 from PySide6.QtCore    import QEvent
 def toggler(window: QWidget) -> Callable[..., None]:
-    window.closeEvent = lambda : window.hide()
-    def inner(event: QEvent) -> None:
-        nonlocal window
+    window.closeEvent = lambda ignored: window.hide()
+    def inner() -> None:
         if not window.isHidden(): window.hide()
         else: window.show()
-        event.accept()
-        activated = not activated
     return inner
 
 import json
-from ....ui.windows import Parameters, errorFactory
+from ui.windows import Parameters, errorFactory
 def appendParams() -> dict[str, str]:
     params: dict[str, str] = {}
     with open(Parameters.FILE) as file:
@@ -129,6 +124,8 @@ def appendParams() -> dict[str, str]:
 
 """
 A simple binary search implementation.
+
+Returns -1 if the target does not exist.
 
 @author  Thomas Gauthier
 @version 0.0
@@ -156,8 +153,11 @@ def binarySearch[T](ite: Iterable[T], target: T) -> int:
 
 """
 A function that mimics a binary search, but for finding the lowest index where
-ite[index] < ite[other]. Note that if, foreach index in the array, the cutoff
-is less than or equal to ite[index], this will return the index 0.
+ite[index] < ite[other].
+
+Note that if, foreach index in the array, the cutoff is less than or equal to
+ite[index], this will return the index 0. The same is done, but with len(ite) - 1,
+if, foreach index, ite[index] is less or equal to the cutoff.
 
 @author  Thomas Gauthier
 @version 0.0
@@ -180,41 +180,12 @@ def cutoff[T](ite: Iterable[T], cutoff: T) -> int:
         mid   = math.floor((high - low) / 2)
         mid_v = ite[mid]
 
-"""
-A class representing an atomic pointer.
+import pathlib as pl
+import os.path as osp
+import os
+def mkabsent(di: pl.Path | str):
+    if isinstance(di, str):
+        di = pl.Path(di)
 
-@author  Thomas Gauthier
-@version 0.0
-"""
-class _AtomicInstance[T](object):
-    @property
-    def val(self: Self) -> T:
-        return self._val
-
-    @property.getter
-    def val(self: Self) -> T:
-        self.lock.acquire()
-        ref: T = self._val.contents
-        self.lock.release()
-        return ref
-
-    @property.setter
-    def val(self: Self, other: T) -> None:
-        temp: T = other # Forces it to be a lvalue
-        self.lock.acquire()
-        self._val = pointer(temp)
-        self.lock.release()
-        # Temp will then only be accessed by the pointer
-        # That means that it does not really matter whether
-        # The given instance was a rvalue or a lvalue (or glvalue, or etc...)
-
-    # Default initializer
-    def __init__(self: Self, val: T) -> None:
-        self.lock:    Lock = Lock()
-        self._val: _Pointer = val
-
-# Factory method for returning an atomic of the instance
-def atomic[T](instance: T) -> _AtomicInstance[T]:
-    return _AtomicInstance(instance)
-
-del _AtomicInstance
+    if not osp.exists(di) or not osp.isdir(di):
+        os.makedirs(di)

@@ -232,6 +232,16 @@ class Ui_mainwindow(object):
 
         self.verticalLayout.addWidget(self.clear_search)
 
+        QWidget.setTabOrder(self.title_edit, self.journal_edit)
+        QWidget.setTabOrder(self.journal_edit, self.from_date)
+        QWidget.setTabOrder(self.from_date, self.to_date)
+        QWidget.setTabOrder(self.to_date, self.doi_edit)
+        QWidget.setTabOrder(self.doi_edit, self.label_box)
+        QWidget.setTabOrder(self.label_box, self.title_regex)
+        QWidget.setTabOrder(self.title_regex, self.journal_regex)
+        QWidget.setTabOrder(self.journal_regex, self.find_but)
+        QWidget.setTabOrder(self.find_but, self.clear_edits)
+        QWidget.setTabOrder(self.clear_edits, self.clear_search)
 
         self.retranslateUi(mainwindow)
 

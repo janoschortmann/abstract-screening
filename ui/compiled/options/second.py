@@ -26,6 +26,7 @@ class Ui_second_option(object):
         second_option.resize(650, 235)
         self.horizontalLayout = QHBoxLayout(second_option)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
+        self.horizontalLayout.setContentsMargins(-1, 0, -1, -1)
         self.main_grid = QGridLayout()
         self.main_grid.setObjectName(u"main_grid")
         self.main_grid.setVerticalSpacing(10)

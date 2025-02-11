@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>400</width>
-    <height>300</height>
+    <height>310</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -264,6 +264,14 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>query_edit</tabstop>
+  <tabstop>api_edit</tabstop>
+  <tabstop>token_edit</tabstop>
+  <tabstop>thr_edit</tabstop>
+  <tabstop>step_edit</tabstop>
+  <tabstop>save_info</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

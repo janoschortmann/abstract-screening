@@ -27,6 +27,7 @@ class Ui_first_option(object):
         self.horizontalLayout = QHBoxLayout(first_option)
         self.horizontalLayout.setSpacing(15)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
+        self.horizontalLayout.setContentsMargins(-1, 0, -1, -1)
         self.variables = QVBoxLayout()
         self.variables.setObjectName(u"variables")
         self.variables.setSizeConstraint(QLayout.SizeConstraint.SetDefaultConstraint)
