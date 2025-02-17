@@ -240,7 +240,7 @@ class FindingModel(PaperTableModel):
         self.__criterias.extend(criterias)
 
     def removeCriterias(self: Self, criteria: dict[int, Callable[..., bool]] | list[Callable[..., bool]]) -> list[int] | None:
-        keys: list[int] = []
+        keys: Iterable[int] = []
 
         if isinstance(criteria, list): keys = map(id, criteria)
         else: keys = criteria.keys()

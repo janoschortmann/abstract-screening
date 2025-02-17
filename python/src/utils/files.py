@@ -37,14 +37,14 @@ class Paper(object):
 
     # Default initializer
     def __init__(
-                self:  Self,
-                title: str,
-                jour:  str,
-                date:  dt.date | None,
-                abstr: str,
-                dire:  str,
-                doi:   str | None = None,
-                label: lab | None = LABELS[0]
+                  self:  Self,
+                  title: str,
+                  abstr: str,
+                  jour:  str,
+                  date:  dt.date | None,
+                  dire:  str,
+                  doi:   str | None = None,
+                  label: lab | None = LABELS[0]
                 ) -> None:
         self.title:     str = title
         self.abstr:     str = abstr
@@ -81,20 +81,32 @@ class Paper(object):
     The string received is in the format of a csv with backslashes before quotes.
     """
     @staticmethod
-    def parseLine(line: str, dire: str) -> ...:
+    def parseLine(line: str, dire: str | None = None) -> ...:
         """
-        Matches all characters between the quotes that have either no character, one character
-        or that starts with something different from either " (for empty quotes) or , (for -"words", "other"-, where
-        -", "- is matched) and end with a character different from \ (for inner quotes).
+        Easier than to do the regex and less error prone.
         """
-        splitted: list[str] = re.split("((?<=\")(([^,\"].*?[^\\])||.)(?=\"))", line)
-        return Paper(
-            splitted[0],
-            splitted[1],
-            splitted[2],
-            dt.datetime.strptime("%Y-%m-%d", splitted[3]),
-            splitted[4]
+        strings: Final[list[str]] = line.split("\"")[1:-1]
+
+        final:  list[str] = []
+        concat: str = ""
+
+        for string in strings:
+            concat += string
+            if not string or string[-1] != "\\":
+                final.append(concat)
+                concat = ""
+            elif string and string[-1] == "\\":
+                concat  = concat[:-1] + "\""
+        paper: Paper = Paper(
+            final[0],
+            final[2],
+            final[4],
+            dt.datetime.strptime(final[6], "%Y-%m-%d",).date(),
+            dire=dire,
+            doi=final[8]
         )
+        paper.dire = dire
+        return paper
 
     """
     Basic hash funcion that returns the hash of this paper's title.

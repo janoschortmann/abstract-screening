@@ -535,7 +535,7 @@ class Data(QWidget, data.Ui_mainwindow):
         # Callbacks
         self.add_but.clicked.connect(lambda ignored: Process(target=self.add).run())
         self.remove_but.clicked.connect(lambda ignored: Process(target=self.remove).run())
-        self.find_but.clicked.connect(funcs.toggler(self.find_window))
+        self.find_but.clicked.connect(toggler(self.find_window))
 
         # Data attributes which are represented as a tuple of a Signal and list
         # This was done for the signals of the Qt API
@@ -594,7 +594,8 @@ class Data(QWidget, data.Ui_mainwindow):
 
     Note that this calls, automatically, the functions self.dataset[0].emit() and self.dataset[1].emit()
     """
-    async def accessPapers(self: Self, function: Callable[[FindingView], None], wait: bool = True) -> bool:
+    def accessPapers(self: Self, function: Callable[[FindingView], None], wait: bool = True) -> bool:
+        print("Lock Access")
         # Note that, in theory, the result shouldn't be necessary, since you could
         # Very well just get the state from the Signal of this widget, but this could still be useful in the future
         res: bool = self.__lock.acquire(wait)
@@ -608,6 +609,7 @@ class Data(QWidget, data.Ui_mainwindow):
 
         self.being_modified.emit(False)
         self.__lock.release()
+        print("Unlocked Access")
 
         return res
 
@@ -619,6 +621,7 @@ class Data(QWidget, data.Ui_mainwindow):
     """
     @staticmethod
     def dump[Q](failures: list[Q], parent: QWidget | None = None) -> None:
+        print("Dumped")
         if not failures:
             funcs.mkabsent(Data.CORE_DUMP)
             with open(Data.CORE_DUMP + "dump.txt", mode="w") as file:
@@ -633,7 +636,7 @@ class Data(QWidget, data.Ui_mainwindow):
             ).show()
 
     # Default callback for the adder
-    async def add(self: Self, text: str | None = None,  path: str | None = None) -> None:
+    def add(self: Self, text: str | None = None,  path: str | None = None) -> None:
         _path: Path = Path(self.path.text() if path is not None else path)
         text:   str = self.specifier.itemText() if text is None else text
 
@@ -650,6 +653,8 @@ class Data(QWidget, data.Ui_mainwindow):
         except *Exception as ex:
             errorFactory("Error in adding", ex.message + " in " + _path.absolute()).show()
 
+        print(f"Dataset Length: {len(self.dataset[1])}")
+
         Data.dump(failures, self)
 
     """
@@ -664,7 +669,7 @@ class Data(QWidget, data.Ui_mainwindow):
     and then remove all hits), but this is faster since you don't need to append to a list
     and then remove it, which would bring the runtime at twice the time.
     """
-    async def _recursiveAdd(self: Self, dataset: tuple[SignalInstance, list] | None, path: Path) -> list[tuple[Path, int]]:
+    def _recursiveAdd(self: Self, dataset: tuple[SignalInstance, list] | None, path: Path) -> list[tuple[Path, int]]:
         failures: list[tuple[Path, int]] = []
         if path.is_dir():
             for other in path.iterdir(): failures.extend(self._recursiveAdd(other.absolute()))
@@ -709,13 +714,15 @@ class Data(QWidget, data.Ui_mainwindow):
 
     # Default callback for the remover
     # Will show a QMessageBox based on the removal process
-    async def remove(self: Self, path: str | None = None) -> None:
+    def remove(self: Self, path: str | None = None) -> None:
         _path: Path = Path(self.path.text() if path is not None else path)
 
         failures: list[tuple[Path, str, int]] = []
         try: self.accessPapers(lambda ignored: failures.extend(self._recursivePemove(_path)))
         except *Exception as ex:
             errorFactory("Error in removing", ex.message + " in " + _path.absolute()).show()
+
+        print(f"Dataset Length: {len(self.dataset[1])}")
 
         Data.dump(failures, self)
 
@@ -731,7 +738,7 @@ class Data(QWidget, data.Ui_mainwindow):
     and then remove all hits), but this is faster since you don't need to append to a list
     and then remove it, which would bring the runtime at twice the time.
     """
-    async def _recursiveRemove(self: Self, path: Path) -> list[tuple[Path, str, int]]:
+    def _recursiveRemove(self: Self, path: Path) -> list[tuple[Path, str, int]]:
         failures: list[tuple[Path, str, int]] = []
 
         if path.is_dir():
@@ -776,7 +783,7 @@ class Data(QWidget, data.Ui_mainwindow):
     except it doesn't need to append the results first, which decreases the
     time spent on the function by a factor of 2.
     """
-    async def parse(self: Self, path: Path) -> tuple[list[tuple[Path, int]], list]:
+    def parse(self: Self, path: Path) -> tuple[list[tuple[Path, int]], list]:
         failures: list[tuple[Path, int]] = []
         results:  list = []
 
@@ -1092,7 +1099,7 @@ class First(QWidget, first.Ui_first_option):
             return
         del bad_sample
 
-        params: dict[str, str] = funcs.appendParams()
+        params: dict[str, str] = appendParams()
 
         """
         --------------------------------------------------
@@ -1311,3 +1318,42 @@ class Third(QWidget, third.Ui_third_option):
             raise error
 
         return unverified_report
+
+"""
+Basic factory for toggling windows.
+
+Overrides the close event with a hidden event to not create new windows each time.
+
+@author  Thomas Gauthier
+@version 1.1
+"""
+from PySide6.QtWidgets import QWidget
+def toggler(window: QWidget) -> Callable[..., None]:
+    window.closeEvent = lambda ignored: window.hide()
+    def inner() -> None:
+        if not window.isHidden(): window.hide()
+        else: window.show()
+    return inner
+
+"""
+Function that appends the previous parameters in the standard
+file path.
+
+@author  Thomas Gauthier
+@version 0.0
+"""
+import json
+def appendParams() -> dict[str, str]:
+    params: dict[str, str] = {}
+    with open(Parameters.FILE) as file:
+        js: Any = json.loads(file.read())
+
+        for param in Parameters.LABELS.keys():
+            try: params[param] = js[param]
+            except:
+                errorFactory(
+                    "Bad argument",
+                    "Parameter received had an error (" + param + ')'
+                ).show()
+                return
+    return params

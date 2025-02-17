@@ -23,7 +23,6 @@ from PySide6.QtWidgets import (
                                 QPushButton,
                                 QSizePolicy
                               )
-from PySide6.QtCore    import QEvent
 
 # Supposed to run first as the name of the file says
 if __name__ != "__main__":
@@ -39,7 +38,7 @@ from typing          import Final, Self, final
 from webbrowser      import open_new_tab
 
 from python.src.utils.files     import Paper, CENTRAL
-from python.src.utils.functions import appendParams, cutoff, mkabsent, toggler
+from python.src.utils.functions import cutoff, mkabsent
 from ui.display.entities        import FindingView, OperatingCurve, SelectionView, SelectionModel
 from ui.compiled import mainwindow
 from ui.windows  import *
@@ -176,13 +175,13 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         # I must admit that it would've been better to create a chain of command
         # Design here instead of random processes all around and windows which
         # States are dictated through signals
-        async def _addQueue(exe: Callable[[None], None]) -> None:
+        def _addQueue(exe: Callable[[None], None]) -> None:
             training_queue.put(exe)
             lock.acquire(timeout=0)
             if emptied:
                 emptied = False
 
-                async def chaining(call: Callable[[None], None] | None = None) -> None:
+                def chaining(call: Callable[[None], None] | None = None) -> None:
                     if call is not None: call()
                     nonlocal emptied
 
@@ -625,9 +624,9 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
             moved: Callable[..., Any]  = sorted
             sorted = lambda dataset : moved(dataset, key=lambda paper : paper.prob)
 
-            sorted(dataset_list)
-            sorted(validation_list)
-            sorted(training_list)
+            sorted(dataset_list, key=lambda paper: paper.prob)
+            sorted(validation_list, key=lambda paper: paper.prob)
+            sorted(training_list, key=lambda paper: paper.prob)
 
             sorted = moved
             del moved
@@ -650,7 +649,8 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                 final_validation = threshold
                 raise Exception("Exited")
 
-            def _show(li: list[Paper], prob: list[float], func: Callable[[float], Never]) -> None:
+            def _show(li: list[Paper], func: Callable[[float], Never]) -> None:
+                prob: Final[list[float]] = map(lambda paper: paper.prob, li)
                 second: float = base + grow
                 first:  float = base
 
@@ -674,8 +674,8 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                         first  += grow
                 except: pass
 
-            _show(training_list, map(lambda paper : paper.prob, training_list), _outsideTraining)
-            _show(validation_list, map(lambda paper : paper.prob, validation_list), _outsideValidation)
+            _show(training_list, _outsideTraining)
+            _show(validation_list, _outsideValidation)
 
             if final_validation != final_training:
                 mbFactory(

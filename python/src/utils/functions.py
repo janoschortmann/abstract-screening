@@ -26,14 +26,10 @@ list and not the original instance.
 def unique[T](collection: list[T]) -> None:
     collection.sort()
     index: int = 0
-    current: T | None = None
 
-    for element in collection:
-        if element == current:
-            collection.pop(index)
-        else:
-            index += 1
-            current = collection[index]
+    for _ in range(1, len(collection)):
+        if collection[index + 1] == collection[index]: collection.pop(index)
+        else: index += 1
 
 """
 A function that will clear each instance that is considered as
@@ -50,8 +46,13 @@ copy it before calling this method.
 @version 0.1
 """
 def clearEmpty[T](collection: Iterable[T]) -> None:
-    for element in collection:
-        if isinstance(element, None) or not bool(element): del collection[element]
+    index: int = 0
+    real:  int = 0
+    for count in range(len(collection)):
+        real = count - index
+        if not bool(collection[real]):
+            del collection[real]
+            index += 1
 
 """
 A useful function that will make a dictionary based on a list of
@@ -64,7 +65,7 @@ def mkdict[T, Q](keys: Iterable[T], mapper: Callable[[T], Q]) -> dict[T, Q]:
     dic: dict[T, Q] = {}
 
     for item in keys:
-        if dic[item] is not None: raise Exception("Duplicate values in iterable")
+        if dic.get(item, None) is not None: raise Exception("Duplicate values in iterable")
         else: dic[item] = mapper(item)
 
     return dic
@@ -83,44 +84,11 @@ def cbdict[T, Q](keys: Iterable[T], values: Iterable[Q]) -> dict[T, Q]:
     values_iter: Any = iter(values)
     dic:  dict[T, Q] = {}
     for item in keys:
-        if dic[item] is not None: raise Exception("Duplicate values in iterable")
+        if dic.get(item, None) is not None: raise Exception("Duplicate values in iterable")
         else: dic[item] = next(values_iter)
 
     return dic
 
-"""
-Basic factory for toggling windows.
-
-Overrides the close event with a hidden event to not create new windows each time.
-
-@author  Thomas Gauthier
-@version 1.1
-"""
-from PySide6.QtWidgets import QWidget
-from PySide6.QtCore    import QEvent
-def toggler(window: QWidget) -> Callable[..., None]:
-    window.closeEvent = lambda ignored: window.hide()
-    def inner() -> None:
-        if not window.isHidden(): window.hide()
-        else: window.show()
-    return inner
-
-import json
-from ui.windows import Parameters, errorFactory
-def appendParams() -> dict[str, str]:
-    params: dict[str, str] = {}
-    with open(Parameters.FILE) as file:
-        js: Any = json.loads(file.read())
-
-        for param in Parameters.LABELS.keys():
-            try: params[param] = js[param]
-            except:
-                errorFactory(
-                    "Bad argument",
-                    "Parameter received had an error (" + param + ')'
-                ).show()
-                return
-    return params
 
 """
 A simple binary search implementation.
@@ -134,19 +102,18 @@ import math
 def binarySearch[T](ite: Iterable[T], target: T) -> int:
     if len(ite) == 0: return -1
 
-    high:  int = len(ite) - 1
-    if ite[high] == target: return high  # Saves me from headaches of by one errors
-
     low:   int = 0
+    high:  int = len(ite)
+
     mid:   int = math.floor((high - low) / 2)
     mid_v:  T = ite[mid]
 
     while mid_v != target:
-        if low == high + 1: return -1
+        if low == high - 1: return -1
         elif mid_v < target: low = mid
         else: high = mid
 
-        mid   = math.floor((high - low) / 2)
+        mid   = math.floor((high + low) / 2)
         mid_v = ite[mid]
 
     return mid
@@ -165,19 +132,18 @@ if, foreach index, ite[index] is less or equal to the cutoff.
 def cutoff[T](ite: Iterable[T], cutoff: T) -> int:
     if len(ite) == 0: return 0
 
-    high: int = len(ite) - 1
-    if ite[high] < cutoff: return high   # Saves me from headaches of by one errors
-
     low:  int = 0
+    high: int = len(ite)
+
     mid:  int = math.floor((high - low) / 2)
     mid_v:  T = ite[mid]
 
     while True:
-        if low == high + 1: return low
+        if low == high - 1: return low
         elif mid_v < cutoff: low = mid
         else: high = mid
 
-        mid   = math.floor((high - low) / 2)
+        mid   = math.floor((high + low) / 2)
         mid_v = ite[mid]
 
 import pathlib as pl
