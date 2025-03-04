@@ -149,6 +149,12 @@ def cutoff[T](ite: Iterable[T], cutoff: T) -> int:
 import pathlib as pl
 import os.path as osp
 import os
+"""
+Makes subdirectories from a given path.
+
+@author  Thomas Gauthier
+@version 0.0
+"""
 def mkabsent(di: pl.Path | str):
     if isinstance(di, str):
         di = pl.Path(di)

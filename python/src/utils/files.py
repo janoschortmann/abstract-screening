@@ -9,12 +9,13 @@ that concern file manipulation/objects referring to files.
 
 from typing import Final, Self
 
-import re
-
 import os.path  as osp
 import datetime as dt
 
-CENTRAL: Final[str] = osp.expanduser("~/.ACAS/")
+import os
+
+CENTRAL: Final[str] = osp.join(osp.expanduser("~"), ".acas")
+SEP:     Final[str] = os.sep
 type lab = str
 
 """

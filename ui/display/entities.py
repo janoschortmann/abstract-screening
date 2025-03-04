@@ -7,27 +7,28 @@ This include, for example, the table from the first step (or from the data butto
 which shows each paper. Another example would be the Operating Characteristic Curve.
 
 @author  Thomas Gauthier
-@version 0.2
+@version 0.3
 """
-from multiprocessing   import Pool
-from pyqtgraph         import PlotWidget, mkPen, QtGui
-from PySide6.QtCore    import (
-                                QAbstractTableModel,
-                                QModelIndex,
-                                QModelRoleData,
-                                Signal,
-                                Qt
-                              )
-from PySide6.QtWidgets import QMessageBox, QWidget, QTableView, QVBoxLayout
-from scipy.stats       import binom
-from threading         import Lock
-from typing            import Any, Callable, Final, Iterable, Self, override, final
+from multiprocessing      import Array, Lock, RLock, Pool
+from pyqtgraph            import PlotWidget, mkPen, QtGui
+from PySide6.QtCore       import (
+                                   QAbstractTableModel,
+                                   QEvent,
+                                   QModelIndex,
+                                   QModelRoleData,
+                                   QTimer,
+                                   Slot,
+                                   Signal,
+                                   Qt
+                                 )
+from PySide6.QtGui        import QFont
+from PySide6.QtWidgets    import QMessageBox, QWidget, QTableView, QVBoxLayout
+from scipy.stats          import binom
+from typing               import Any, Callable, Final, Iterable, Self, override, final
 
 from python.src.utils.files     import Paper
 from python.src.utils.functions import clearEmpty, unique
-from ui.resources_loader import *
-
-import ui.windows as win
+from ui.resources_loader        import *
 
 import datetime as dt
 import numpy as np
@@ -48,7 +49,7 @@ class PaperTableModel(QAbstractTableModel):
     # Default initializer that assigns the data received and the columns shown
     # Please note that the data is not copied but referenced. Thus, it is assumed
     # That the original instance won't change. This is done to be more efficient,
-    # But puts the responsability on the user to not fuck this up.
+    # But puts the responsability on the programmer to not do undefined behaviour.
     def __init__(
                   self:    Self,
                   data:    list | None,
@@ -63,7 +64,7 @@ class PaperTableModel(QAbstractTableModel):
 
         self.__columns: Final[list[str]] = columns.copy()
         self.__headers: Final[list[str]] = headers.copy()
-        self.__data: list = data if data is not None else []
+        self.__data: list[Paper] = data if data is not None else []
 
     @override
     def rowCount(self: Self, index: QModelIndex) -> int:
@@ -104,7 +105,7 @@ class PaperTableView(QWidget):
     # Default initializer
     def __init__(
                   self: Self,
-                  data: list | None,
+                  data: list[Paper] | None,
                   columns: list[str] | tuple[str],
                   headers: list[str] | tuple[str],
                   parent: QWidget | None = None
@@ -131,7 +132,7 @@ class MutableTableModel(PaperTableModel):
     # Here again, the data is passed by reference
     def __init__(
                   self: Self,
-                  data: list | None,
+                  data: list[Paper] | None,
                   columns: list[str] | tuple[str],
                   headers: list[str] | tuple[str],
                   parent:    QWidget | None = None
@@ -143,7 +144,7 @@ class MutableTableModel(PaperTableModel):
     # Is passed by reference. This also accepts doubles of papers
     def append(self: Self, data: list) -> None:
         self.__data.append(data)
-        self.dataChanged.emit()
+        self.layoutChanged.emit()
 
     # Removes the targets and sends back the failures
     def remove(self: Self, removal: list) -> list | None:
@@ -153,13 +154,13 @@ class MutableTableModel(PaperTableModel):
             try: self.__data.remove(element)
             except: failures.append(element)
 
-        self.dataChanged.emit()
+        self.layoutChanged.emit()
         return failures or None
 
     # Clearing
     def clear(self: Self) -> None:
         self.__data.clear()
-        self.dataChanged.emit()
+        self.layoutChanged.emit()
 
 """
 A TableModel that implements a basic finding feature.
@@ -178,14 +179,15 @@ class FindingModel(PaperTableModel):
 
     # Default initializer
     def __init__(
-                  self: Self, data: list | None,
+                  self: Self,
+                  data: list[Paper] | None,
                   columns: list[str] | tuple[str],
                   headers: list[str] | tuple[str],
                   parent:    QWidget | None = None
                 ) -> None:
         # Additional variables
-        self.__lock:      Lock = Lock()
-        self.__hidden:    list = data
+        self.__lock: Any = Lock()
+        self.__hidden: list[Paper] = data
         self.__criterias: list[Callable[..., bool]] = []
 
         # Hidden  copied since it represents the data shown
@@ -215,13 +217,14 @@ class FindingModel(PaperTableModel):
         return FindingModel.updates(inner)
 
     # Will update the showing data. Used when the real data has changed
+    @Slot()
     def updateShowing(self: Self) -> None:
         self.__data = self.getRespecting()
-        self.dataChanged.emit()
+        self.layoutChanged.emit()
 
     # Method used to return the papers that are respecting the criterias
     def getRespecting(self: Self) -> list:
-        respecting: list = []
+        respecting: list[Paper] = []
 
         for paper in self.__hidden:
             # Could be boxed in another function, depending on future requirements
@@ -231,7 +234,7 @@ class FindingModel(PaperTableModel):
                     respects_all = False
                     break
 
-            if respects_all: self.respecting.append(paper)
+            if respects_all: respecting.append(paper)
 
         return respecting
 
@@ -258,11 +261,11 @@ class FindingModel(PaperTableModel):
     # Appends new data and shows it if it respects the current criterias
     # Note that this could also be done outside this method since the data
     # Is passed by reference. This also accepts doubles
-    def append(self: Self, data: list) -> None:
+    def append(self: Self, data: list[Paper]) -> None:
         self.__hidden.extend(data)
 
     # Removes the elements that are the same as in the removal list
-    def remove(self: Self, removal: list) -> list | None:
+    def remove(self: Self, removal: list[Paper]) -> list | None:
         failures: list = []
 
         for element in removal:
@@ -311,7 +314,7 @@ class UniqueTableModel(MutableTableModel):
     def append(self: Self, data: list) -> None:
         self.__data.append(data)
         unique(self.__data)
-        self.dataChanged.emit()
+        self.layoutChanged.emit()
 
 """
 Basic class that represents a table showing the title,
@@ -362,7 +365,8 @@ class SelectionModel(FindingModel):
 
     # Default behaviour for double clicking on an item
     def doubleClicked(self: Self, index: QModelIndex) -> None:
-        paper_view: win.PaperView = win.PaperView(self.__viewing[index.row()])
+        from ui.windows import PaperView
+        paper_view: PaperView = PaperView(self.__viewing[index.row()])
         paper_view.changed.connect(self.layoutChanged.emit)
         paper_view.show()
 
@@ -392,7 +396,7 @@ class SelectionView(QTableView):
 Basic implementation of the FindingModel as a TableView.
 
 @author  Thomas Gauthier
-@version 0.2
+@version 0.3
 """
 class FindingView(QWidget):
     """
@@ -468,11 +472,20 @@ class FindingView(QWidget):
             ) -> None:
         if label not in Paper.POSSIBILITIES: raise Exception("Not in possibilities")
 
-        # HACK : Access to private variables
-        # Note that this is generally unsafe, but since the "addCriterias" method is invoked,
-        # This is used to save a bit of runtime execution
+        """
+        HACK : Access to private variables.
+
+        Note that this is generally unsafe, but since the "addCriterias" method is invoked,
+        This is used to save a bit of runtime execution, since, if the "clearCriterias" method
+        Was invoked, that would update the view twice, which is suboptimal
+
+        The lock must be acquired to be thread safe.
+        """
+        self.model.__lock.acquire()
         self.model.__criterias.clear()
-        self.model.add_criterias(self.__getCriterias(title, journal, date, doi, label))
+        self.model.__lock.release()
+
+        self.model.addCriterias(self.__getCriterias(title, journal, date, doi, label))
 
     def found(
                self:    Self,
@@ -482,12 +495,24 @@ class FindingView(QWidget):
                doi:     str | None,
                label:   str | None
              ) -> list:
-        # HACK : Access to private variables
-        # This is generally unsafe, but necessary in this context
+        """
+        HACK : Access to private variables.
+
+        This is generally unsafe, but necessary in this context, since you
+        don't want to modify the view, but only access the papers to see which ones
+        respect the theoretical criteria emitted.
+
+        The lock must be acquired to be thread safe.
+        """
+        self.model.__lock.acquire()
+
         momento: list[Callable[..., Any]] = self.model.__criterias.copy()
         self.model.__criterias = self.__getCriterias(title, journal, date, doi, label)
+
         temp: list = self.model.getRespecting()
         self.model.__criterias = momento
+
+        self.model.__lock.release()
         return temp
 
     """
@@ -519,7 +544,7 @@ and a few lines to represent them.
 class OperatingCurve(QWidget):
     # Number of points shown
     """
-    Todo : If necessary, change this to be a constant based on the maximal width of the screens
+    FIXME : If necessary, change this to be a constant based on the maximal width of the screens
     Such as, for example (Java PseudoCode):
     final int points = Math.round(screens.stream().map(screen::getWidth).max() * CONSTANT);
     Or something like that...
@@ -529,6 +554,8 @@ class OperatingCurve(QWidget):
     THRESHOLD:  Final[int]   = 1000
     # Number of processes in the pool
     POOL_COUNT: Final[int]   = 4
+
+    modifying: Signal = Signal(bool)
 
     # Default initializer that only set the basic themes
     def __init__(self: Self, parent: QWidget | None = None) -> None:
@@ -546,6 +573,33 @@ class OperatingCurve(QWidget):
         layout.addLayout(self.plot)
         self.setLayout(layout)
 
+        # Multithreading
+        self.__lock: Any = RLock()
+
+    @override
+    def setDisabled(self: Self, state: bool) -> None:
+        self.plot.setDisabled(state)
+        self.clear.setDisabled(state)
+
+    @override
+    def setEnabled(self: Self, state: bool) -> None:
+        self.setDisabled(not state)
+
+    # Static method that modifies some function to require the lock
+    @staticmethod
+    def modifies[**P, R](func: Callable[P, R]) -> Callable[P, R]:
+        def inner(*args: P.args, **kwargs: P.kwargs) -> R:
+            self = args[0]
+            self.__lock.acquire()
+
+            self.modifying.emit(True)
+            ret: R = func(args, kwargs)
+            self.modifying.emit(False)
+
+            self.__lock.release()
+            return ret
+        return inner
+
     # Setter for the attributes of the characteristic function
     def setAttributes(
                        self: Self,
@@ -562,53 +616,66 @@ class OperatingCurve(QWidget):
     """
     Default method used to plot the Operating curve.
 
+    Note that this is using the global delegator, for it contains signals
+    to the UI thread. Note that, given that if there is another Delegator from
+    the UI, both will compete over the same resources, it is unnecessary and
+    unwise to create a parameter that represents a specific delegator when the global
+    one suffices for this specific scenario.
+
     Note that there is a constant number of points, since recalculating
     some lot of given points each time the window is resized gets expensive pretty quickly.
 
     Note that the amount of points plotted follows the resolution of the biggest screen.
     """
-    def plot(self: Self) -> None:
+    def plotf(self: Self, delegate: bool = True) -> None:
+        from ui.windows import GLO_DEL
+
         for item in (self.alpha, self.beta, self.param1, self.param2):
             if item is None: raise Exception("Cannot have null parameters")
-        if self.nc is None: self.findNC()
+        if self.nc[0] == -1: self.findNC()
 
         p_values: np.ndarray[np.floating[Any]] = np.linspace(0, 0.5, OperatingCurve.POINTS)
         probabilities: list[float] = [OperatingCurve.probAcceptance(self.nc[0], self.nc[1], p) for p in p_values]
 
-        # Plotting the function and the lines
-        self.plot.plotItem.plot(p_values, probabilities, pen=self.pen)
-        self.plot.plotItem.addLegend()
+        def do() -> None:
+            # Plotting the function and the lines
+            self.plot.plotItem.plot(p_values, probabilities, pen=self.pen)
+            self.plot.plotItem.addLegend()
 
-        # Lines representing the current values used
-        producer: float = 1 - self.alpha
-        self.plot.plotItem.addLine(
-                                    name = "Producer: 1 - alpha (" + str(producer) + ')',
-                                    y    = producer,
-                                    pen  = mkPen(hsv = (20, 85, 95), width = 0.5, style = Qt.PenStyle.DashLine)
-                                  )
+            # Lines representing the current values used
+            producer: float = 1 - self.alpha
+            self.plot.plotItem.addLine(
+                                        name = "Producer: 1 - alpha (" + str(producer) + ')',
+                                        y    = producer,
+                                        pen  = mkPen(hsv = (20, 85, 95), width = 0.5, style = Qt.PenStyle.DashLine)
+                                      )
 
-        self.plot.plotItem.addLine(
-                                    name = "Consumer: beta (" + str(self.beta) + ')',
-                                    y    = self.beta,
-                                    pen  = mkPen(color = 'b', width = 0.5, style = Qt.PenStyle.DashLine)
-                                  )
+            self.plot.plotItem.addLine(
+                                        name = "Consumer: beta (" + str(self.beta) + ')',
+                                        y    = self.beta,
+                                        pen  = mkPen(color = 'b', width = 0.5, style = Qt.PenStyle.DashLine)
+                                      )
 
-        self.plot.plotItem.addLine(
-                                    name = "Parameter 1: " + str(self.param1),
-                                    x    = self.param1,
-                                    pen  = mkPen(color = 'g', width = 0.5, style = Qt.PenStyle.DashLine)
-                                  )
+            self.plot.plotItem.addLine(
+                                        name = "Parameter 1: " + str(self.param1),
+                                        x    = self.param1,
+                                        pen  = mkPen(color = 'g', width = 0.5, style = Qt.PenStyle.DashLine)
+                                      )
 
-        self.plot.plotItem.addLine(
-                                    name = "Parameter 2: " + str(self.param2),
-                                    x    = self.param2,
-                                    pen  = mkPen(color = 'r', width = 0.5, style = Qt.PenStyle.DashLine)
-                                  )
+            self.plot.plotItem.addLine(
+                                        name = "Parameter 2: " + str(self.param2),
+                                        x    = self.param2,
+                                        pen  = mkPen(color = 'r', width = 0.5, style = Qt.PenStyle.DashLine)
+                                      )
 
-        # Other formatting
-        self.plot.plotItem.showGrid(x = True, y = True)
-        self.plot.plotItem.legend.addItem(None, "Number of samples: " + str(self.nc[0]))
-        self.plot.plotItem.legend.addItem(None, "Minimal number of acceptance: " + str(self.nc[1]))
+            # Other formatting
+            self.plot.plotItem.showGrid(x = True, y = True)
+            self.plot.plotItem.legend.addItem(None, "Number of samples: " + str(self.nc[0]))
+            self.plot.plotItem.legend.addItem(None, "Minimal number of acceptance: " + str(self.nc[1]))
+
+        if delegate: do()
+        else: GLO_DEL.call(do)
+
 
     """
     Clears the mask of all data put inside
@@ -628,13 +695,13 @@ class OperatingCurve(QWidget):
     For more information on this method, please consult the requirements file.
     """
     def findNC(self: Self) -> tuple[int, int]:
-        lock: Lock = Lock()
-        self.nc: tuple[int, int] | None = None
+        lock:    Any = Lock()
+        self.nc: Any = Array('i', 2)
 
         # Inner function used by the instances of the pool
         # In most cases, it will find the smallest result
         # And the trade for speed is worth the while
-        def inner(pool: Any, initial: int) -> None:
+        def inner(pool: Any, initial: int) -> tuple[int, int]:
             num: int = initial
 
             while num <= OperatingCurve.THRESHOLD:
@@ -648,15 +715,21 @@ class OperatingCurve(QWidget):
                         nonlocal lock
                         # If two results are possible, lock one for the pool to terminate
                         lock.acquire()
-                        self.nc = (num, cnt)
+                        self.nc[0] = num
+                        self.nc[1] = cnt
                         pool.terminate()
 
                     num += OperatingCurve.POOL_COUNT
+            self.nc[0] = -1
+            pool.terminate()
 
         with Pool(OperatingCurve.POOL_COUNT) as pool:
             for i in range(OperatingCurve.POOL_COUNT):
                 pool.apply(inner, args=(pool, i + 1))
-            if self.nc is None:
+
+            pool.join()
+
+            if self.nc[0] == -1:
                 raise Exception("Could not find a nc that satisfies the values")
 
         lock.release()
@@ -683,6 +756,14 @@ class OperatingCurve(QWidget):
     def probAcceptance(n: int, c: int, p: float) -> float:
         return sum([binom.pmf(k, n, p) for k in range(c + 1)])
 
+for method in (
+    OperatingCurve.setAttributes,
+    OperatingCurve.plotf,
+    OperatingCurve.findNC,
+    OperatingCurve.linearFindNC
+):
+    method = OperatingCurve.modifies(method)
+
 """
 A factory method that will return a QMessageBox
 for some error based on client input.
@@ -700,15 +781,50 @@ A factory method that will return a QMessageBox with the given parameters.
 @version 0.0
 """
 def mbFactory(
-               name: str,
+               name:    str,
                message: str,
-               icon: QMessageBox.Icon,
-               buttons: QMessageBox.StandardButton,
-               parent: QWidget | None = None
+               icon:    QMessageBox.Icon | None,
+               buttons: QMessageBox.StandardButton | None,
+               parent:  QWidget | None = None
              ) -> QMessageBox:
     mb: QMessageBox = QMessageBox(parent)
     mb.setWindowTitle(name)
     mb.setText(message)
-    mb.setStandardButtons(buttons)
-    mb.setIcon(icon)
+
+    if buttons is not None: mb.setStandardButtons(buttons)
+    if icon is not None: mb.setIcon(icon)
+
+    mb.setFont(QFont("Open Sans", 14, 10))
+    return mb
+
+def waitFactory(
+                 name:     str,
+                 message:  str,
+                 interval: int,
+                 maxd:     int = 3,
+                 parent:   QWidget | None = None
+               ) -> QMessageBox:
+    dots: int = 0
+    mb: QMessageBox = mbFactory(
+        name,
+        message,
+        QMessageBox.Icon.Information,
+        None,
+        parent
+    )
+
+    def increase() -> None:
+        nonlocal dots
+        dots = dots % maxd + 1
+
+    timer: QTimer = QTimer(parent)
+    timer.setInterval(interval)
+    timer.timeout.connect(lambda : (increase(), mb.setText(message + "." * dots)))
+
+    mapper: Callable[[QEvent], None] = mb.closeEvent
+    mb.closeEvent = lambda event: (mapper(event), timer.stop(), timer.deleteLater())
+
+    mb.show()
+    timer.start()\
+
     return mb

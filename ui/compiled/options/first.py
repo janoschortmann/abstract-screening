@@ -28,10 +28,12 @@ class Ui_first_option(object):
         self.horizontalLayout.setSpacing(15)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.horizontalLayout.setContentsMargins(-1, 0, -1, -1)
-        self.variables = QVBoxLayout()
+        self.variables = QWidget(first_option)
         self.variables.setObjectName(u"variables")
-        self.variables.setSizeConstraint(QLayout.SizeConstraint.SetDefaultConstraint)
-        self.edit_grid = QWidget(first_option)
+        self.variables_layout = QVBoxLayout(self.variables)
+        self.variables_layout.setObjectName(u"variables_layout")
+        self.variables_layout.setSizeConstraint(QLayout.SizeConstraint.SetDefaultConstraint)
+        self.edit_grid = QWidget(self.variables)
         self.edit_grid.setObjectName(u"edit_grid")
         self.edit_grid.setStyleSheet(u"border: 1px solid grey;")
         self.edits = QGridLayout(self.edit_grid)
@@ -128,9 +130,9 @@ class Ui_first_option(object):
         self.edits.setRowMinimumHeight(0, 50)
         self.edits.setRowMinimumHeight(1, 50)
 
-        self.variables.addWidget(self.edit_grid)
+        self.variables_layout.addWidget(self.edit_grid)
 
-        self.query_buttons = QWidget(first_option)
+        self.query_buttons = QWidget(self.variables)
         self.query_buttons.setObjectName(u"query_buttons")
         sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         sizePolicy.setHorizontalStretch(0)
@@ -164,15 +166,15 @@ class Ui_first_option(object):
         self.buttons.addWidget(self.remove)
 
 
-        self.variables.addWidget(self.query_buttons)
+        self.variables_layout.addWidget(self.query_buttons)
 
 
-        self.horizontalLayout.addLayout(self.variables)
+        self.horizontalLayout.addWidget(self.variables)
 
-        self.query = QTextEdit(first_option)
-        self.query.setObjectName(u"query")
+        self.query_box = QTextEdit(first_option)
+        self.query_box.setObjectName(u"query_box")
 
-        self.horizontalLayout.addWidget(self.query)
+        self.horizontalLayout.addWidget(self.query_box)
 
 
         self.retranslateUi(first_option)

@@ -21,264 +21,266 @@
     <number>0</number>
    </property>
    <item>
-    <layout class="QVBoxLayout" name="variables">
-     <property name="sizeConstraint">
-      <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
-     </property>
-     <item>
-      <widget class="QWidget" name="edit_grid" native="true">
-       <property name="styleSheet">
-        <string notr="true">border: 1px solid grey;</string>
-       </property>
-       <layout class="QGridLayout" name="edits" rowstretch="0,0" rowminimumheight="50,50" columnminimumwidth="0,10,0,0,10,0">
-        <property name="sizeConstraint">
-         <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
+    <widget class="QWidget" name="variables" native="true">
+     <layout class="QVBoxLayout" name="variables_layout">
+      <property name="sizeConstraint">
+       <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
+      </property>
+      <item>
+       <widget class="QWidget" name="edit_grid" native="true">
+        <property name="styleSheet">
+         <string notr="true">border: 1px solid grey;</string>
         </property>
-        <item row="1" column="0">
-         <widget class="QLabel" name="dir_lab">
-          <property name="font">
-           <font>
-            <family>Open Sans</family>
-            <pointsize>10</pointsize>
-            <italic>true</italic>
-           </font>
-          </property>
-          <property name="styleSheet">
-           <string notr="true">border: 0px solid black;</string>
-          </property>
-          <property name="text">
-           <string>Directory</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="4">
-         <widget class="QLabel" name="col_3">
-          <property name="styleSheet">
-           <string notr="true">border: 0px solid black;</string>
-          </property>
-          <property name="text">
-           <string>:</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignmentFlag::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="2">
-         <widget class="QLineEdit" name="date_edit">
-          <property name="styleSheet">
-           <string notr="true">border: 0px solid black;</string>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="0">
-         <widget class="QLabel" name="date_lab">
-          <property name="font">
-           <font>
-            <family>Open Sans</family>
-            <pointsize>10</pointsize>
-            <italic>true</italic>
-           </font>
-          </property>
-          <property name="styleSheet">
-           <string notr="true">border: 0px solid black;</string>
-          </property>
-          <property name="text">
-           <string>Date Range</string>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="5">
-         <widget class="QLineEdit" name="sample_edit">
-          <property name="styleSheet">
-           <string notr="true">border: 0px solid black;</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="1">
-         <widget class="QLabel" name="col_2">
-          <property name="styleSheet">
-           <string notr="true">border: 0px solid black;</string>
-          </property>
-          <property name="text">
-           <string>:</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignmentFlag::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="4">
-         <widget class="QLabel" name="col_4">
-          <property name="styleSheet">
-           <string notr="true">border: 0px solid black;</string>
-          </property>
-          <property name="text">
-           <string>:</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignmentFlag::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="2">
-         <widget class="QLineEdit" name="directory_edit">
-          <property name="styleSheet">
-           <string notr="true">border: 0px solid black;</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="5">
-         <widget class="QLineEdit" name="validation_edit">
-          <property name="styleSheet">
-           <string notr="true">border: 0px solid black;</string>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="1">
-         <widget class="QLabel" name="col_1">
-          <property name="styleSheet">
-           <string notr="true">border: 0px solid black;</string>
-          </property>
-          <property name="text">
-           <string>:</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignmentFlag::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="3">
-         <widget class="QLabel" name="sample_lab">
-          <property name="font">
-           <font>
-            <family>Open Sans</family>
-            <pointsize>10</pointsize>
-            <italic>true</italic>
-           </font>
-          </property>
-          <property name="styleSheet">
-           <string notr="true">border: 0px solid black;</string>
-          </property>
-          <property name="text">
-           <string>Sample Size</string>
-          </property>
-          <property name="indent">
-           <number>10</number>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="3">
-         <widget class="QLabel" name="validation_lab">
-          <property name="font">
-           <font>
-            <family>Open Sans</family>
-            <pointsize>10</pointsize>
-            <italic>true</italic>
-           </font>
-          </property>
-          <property name="styleSheet">
-           <string notr="true">border: 0px solid black;</string>
-          </property>
-          <property name="text">
-           <string>Validation Size</string>
-          </property>
-          <property name="indent">
-           <number>10</number>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </widget>
-     </item>
-     <item>
-      <widget class="QWidget" name="query_buttons" native="true">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="minimumSize">
-        <size>
-         <width>0</width>
-         <height>0</height>
-        </size>
-       </property>
-       <property name="maximumSize">
-        <size>
-         <width>16777215</width>
-         <height>70</height>
-        </size>
-       </property>
-       <layout class="QHBoxLayout" name="buttons">
-        <property name="spacing">
-         <number>20</number>
+        <layout class="QGridLayout" name="edits" rowstretch="0,0" rowminimumheight="50,50" columnminimumwidth="0,10,0,0,10,0">
+         <property name="sizeConstraint">
+          <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
+         </property>
+         <item row="1" column="0">
+          <widget class="QLabel" name="dir_lab">
+           <property name="font">
+            <font>
+             <family>Open Sans</family>
+             <pointsize>10</pointsize>
+             <italic>true</italic>
+            </font>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">border: 0px solid black;</string>
+           </property>
+           <property name="text">
+            <string>Directory</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="4">
+          <widget class="QLabel" name="col_3">
+           <property name="styleSheet">
+            <string notr="true">border: 0px solid black;</string>
+           </property>
+           <property name="text">
+            <string>:</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignmentFlag::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="2">
+          <widget class="QLineEdit" name="date_edit">
+           <property name="styleSheet">
+            <string notr="true">border: 0px solid black;</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="0">
+          <widget class="QLabel" name="date_lab">
+           <property name="font">
+            <font>
+             <family>Open Sans</family>
+             <pointsize>10</pointsize>
+             <italic>true</italic>
+            </font>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">border: 0px solid black;</string>
+           </property>
+           <property name="text">
+            <string>Date Range</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="5">
+          <widget class="QLineEdit" name="sample_edit">
+           <property name="styleSheet">
+            <string notr="true">border: 0px solid black;</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QLabel" name="col_2">
+           <property name="styleSheet">
+            <string notr="true">border: 0px solid black;</string>
+           </property>
+           <property name="text">
+            <string>:</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignmentFlag::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="4">
+          <widget class="QLabel" name="col_4">
+           <property name="styleSheet">
+            <string notr="true">border: 0px solid black;</string>
+           </property>
+           <property name="text">
+            <string>:</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignmentFlag::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="2">
+          <widget class="QLineEdit" name="directory_edit">
+           <property name="styleSheet">
+            <string notr="true">border: 0px solid black;</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="5">
+          <widget class="QLineEdit" name="validation_edit">
+           <property name="styleSheet">
+            <string notr="true">border: 0px solid black;</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QLabel" name="col_1">
+           <property name="styleSheet">
+            <string notr="true">border: 0px solid black;</string>
+           </property>
+           <property name="text">
+            <string>:</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignmentFlag::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="3">
+          <widget class="QLabel" name="sample_lab">
+           <property name="font">
+            <font>
+             <family>Open Sans</family>
+             <pointsize>10</pointsize>
+             <italic>true</italic>
+            </font>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">border: 0px solid black;</string>
+           </property>
+           <property name="text">
+            <string>Sample Size</string>
+           </property>
+           <property name="indent">
+            <number>10</number>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="3">
+          <widget class="QLabel" name="validation_lab">
+           <property name="font">
+            <font>
+             <family>Open Sans</family>
+             <pointsize>10</pointsize>
+             <italic>true</italic>
+            </font>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">border: 0px solid black;</string>
+           </property>
+           <property name="text">
+            <string>Validation Size</string>
+           </property>
+           <property name="indent">
+            <number>10</number>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="query_buttons" native="true">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
         </property>
-        <property name="sizeConstraint">
-         <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
         </property>
-        <item>
-         <widget class="QPushButton" name="add">
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>30</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>10</pointsize>
-           </font>
-          </property>
-          <property name="styleSheet">
-           <string notr="true">background-color: rgb(115, 255, 115);</string>
-          </property>
-          <property name="text">
-           <string>Add</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="remove">
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>30</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>10</pointsize>
-           </font>
-          </property>
-          <property name="styleSheet">
-           <string notr="true">background-color: rgb(255, 90, 90);</string>
-          </property>
-          <property name="text">
-           <string>Remove</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </widget>
-     </item>
-    </layout>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>70</height>
+         </size>
+        </property>
+        <layout class="QHBoxLayout" name="buttons">
+         <property name="spacing">
+          <number>20</number>
+         </property>
+         <property name="sizeConstraint">
+          <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
+         </property>
+         <item>
+          <widget class="QPushButton" name="add">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <pointsize>10</pointsize>
+            </font>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">background-color: rgb(115, 255, 115);</string>
+           </property>
+           <property name="text">
+            <string>Add</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="remove">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="font">
+            <font>
+             <pointsize>10</pointsize>
+            </font>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">background-color: rgb(255, 90, 90);</string>
+           </property>
+           <property name="text">
+            <string>Remove</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
    </item>
    <item>
-    <widget class="QTextEdit" name="query"/>
+    <widget class="QTextEdit" name="query_box"/>
    </item>
   </layout>
  </widget>

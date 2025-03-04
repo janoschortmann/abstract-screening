@@ -1,4 +1,2 @@
 "First Title CSV", "First Abstract CSV", "First Journal CSV", "1900-01-01", ""
-"Second,\n Title \CSV", "Second Abstract CSV", "Second Journal CSV", "1900-01-02", "DOI CSV"
-"", "", "", "", ""
-"Third, \"Title\", \"CSV\"", "Third, Abstract CSV?", "", ""
+"Second,\n Title \"CSV", "Second Abstract CSV", "Second Journal CSV", "1900-01-02", "DOI CSV"

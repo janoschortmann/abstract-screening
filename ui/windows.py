@@ -4,11 +4,11 @@ File containing all instances of the windows defined with the xml files.
 It also connects the signals/callbacks of those windows.
 
 @author  Thomas Gauthier
-@version 0.2
+@version 0.3
 """
-from multiprocessing   import Process
+from datetime          import datetime
 from pathlib           import Path
-from threading         import Lock
+from threading         import Condition, Thread, Lock
 from typing            import *
 from PySide6.QtWidgets import (
                                 QDialog,
@@ -18,29 +18,29 @@ from PySide6.QtWidgets import (
                                 QSizePolicy,
                                 QTableView
                               )
-from PySide6.QtCore    import QEvent, Signal, SignalInstance
+from PySide6.QtCore    import QObject, QThread, Qt, Signal, SignalInstance, Slot
 from PySide6.QtGui     import QStandardItemModel
 
-from python.src.utils.files     import Paper, CENTRAL
-from ui.compiled                import (
-                                         data,
-                                         find,
-                                         frequency,
-                                         interval,
-                                         loading,
-                                         paper,
-                                         params,
-                                         stats,
-                                         stem
-                                       )
-from ui.compiled.options        import first, second, third
-from ui.display.entities        import (
-                                         FindingView,
-                                         FindingModel,
-                                         PaperTableView,
-                                         mbFactory,
-                                         errorFactory
-                                       )
+from python.src.utils.files          import Paper, CENTRAL
+from ui.compiled                     import (
+                                              data,
+                                              find,
+                                              frequency,
+                                              interval,
+                                              loading,
+                                              paper,
+                                              params,
+                                              stats,
+                                              stem
+                                            )
+from ui.compiled.options             import first, second, third
+from ui.display.entities             import (
+                                              FindingView,
+                                              FindingModel,
+                                              PaperTableView,
+                                              mbFactory,
+                                              errorFactory
+                                            )
 from nltk.corpus                     import stopwords
 from nltk.stem                       import PorterStemmer
 from nltk.tokenize                   import wordpunct_tokenize
@@ -49,6 +49,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 # Web and async
 from urllib.parse import quote
 import aiohttp
+import asyncio
 
 # Relative libs
 import python.src.utils.functions as funcs
@@ -64,6 +65,93 @@ import string
 import os.path as osp
 import numpy   as np
 import pandas  as pd
+
+import re
+
+"""
+Class that can should only be called from the ui therad so that other threads
+may manipulate the UI without any problems. This is a patch to the current threading environment
+which forces the ui the worker threads to be separated.
+
+In a perfect world, this wouldn't be necessary, but it is a hack that works.
+
+@author  Thomas Gauthier
+@version 0.0
+"""
+@final
+class Delegator(QObject):
+    # This actually doesn't represent a signal that is own by the ui, but, since,
+    # In theory, this object should've been created by the ui thread (which is now it's owner),
+    # This signal is also own by the ui thread, making connections with it possible without any
+    # Structural modification. Therefore, with this signal, any thread can modify the signal by
+    # Calling the "Call" function in the ui object's Delegator
+    ui_signal:   Signal = Signal()
+
+    def __init__(self: Self) -> None:
+        super().__init__()
+        self.__lock: Lock = Lock()
+
+    def call[**P](
+              self:     Self,
+              func:     Callable[[None], None],
+              *args:    P.args,
+              raised:   Callable[[Exception], None] | None = None,
+              final:    Callable[[bool], None] | None = None,
+              **kwargs: P.kwargs
+            ) -> None:
+        self.__lock.acquire()
+
+        def _call() -> None:
+            thrown: bool = False
+            try: func(*args, **kwargs)
+            except Exception as ex:
+                thrown = True
+                if raised is not None: raised(ex)
+                else: raise ex
+            finally:
+                if final is not None: final(thrown)
+                self.ui_signal.disconnect(_call)
+                self.__lock.release()
+
+        self.ui_signal.connect(_call, type=Qt.ConnectionType.QueuedConnection)
+        self.ui_signal.emit()
+
+    def wait[**P](
+              self:     Self,
+              func:     Callable[[None], None],
+              *args:    P.args,
+              raised:   Callable[[Exception], None] | None = None,
+              final:    Callable[[bool], None] | None = None,
+              **kwargs: P.kwargs
+            ) -> None:
+        waiter: Condition = Condition()
+        self.__lock.acquire()
+
+        def _call() -> None:
+            thrown: bool = False
+            try: func(args, kwargs)
+            except Exception as ex:
+                thrown = True
+                if raised is not None: raised(ex)
+                else: raise ex
+            finally:
+                if final is not None: final(thrown)
+                self.ui_signal.disconnect(_call)
+                with waiter: waiter.notify()
+                self.__lock.release()
+
+        self.ui_signal.connect(_call, type=Qt.ConnectionType.QueuedConnection)
+        self.ui_signal.emit()
+
+        with waiter: waiter.wait()
+
+    # Function that allocates the given factory produced by the object to the desired thread
+    def allocate(self: Self, func: Callable[[QObject | None], QObject], thread: QThread) -> QObject:
+        res: QObject = func(self.ui_object)
+        res.moveToThread(thread)
+        return res
+
+GLO_DEL: Final[Delegator] = Delegator()
 
 """
 A window for showing all the papers in a given probability interval.
@@ -131,7 +219,7 @@ which bases itself on the most predominant words already found.
 
 In summary, even though this feature was originally planned, based on
 the usefulness and the changes required to make this feature, it will be cut
-from this program. For anywho who tries to add it back, go ahead, but I seriously
+from this program. For anyone who tries to add it back, go ahead, but I seriously
 doubt about its efficacy.
 
 @author  Thomas Gauthier
@@ -140,18 +228,14 @@ doubt about its efficacy.
 @final
 class Stem(QDialog, stem.Ui_mainwindow):
     # Default initializer
-    def __init__(self: Self, data: list[str], parent: QWidget | None = None) -> None:
+    def __init__(self: Self, data: np.ndarray, parent: QWidget | None = None) -> None:
         # Basic initialization
         super().__init__(parent)
         self.setupUi(self)
 
-        # Received a numpy ndarray, but removing and appending is faster in a list
-        self.__stems: list[str] = list(data)
-
         # ListView manipulation
         self.__model: QStandardItemModel = QStandardItemModel()
-        for item in self.__stems:
-            self.__model.appendRow(item)
+        self.__model.appendRow(data)
         self.stem_list.setModel(self.__model)
 
 """
@@ -215,8 +299,10 @@ class Parameters(QWidget, params.Ui_mainwindow):
         "token":   "Token",
         "step":     "Step"
     }
-    DIR:    Final[str] = CENTRAL + "files/"
-    FILE:   Final[str] = DIR + "params.json"
+    # Directory for printing parameters
+    DIR:    Final[str] = osp.join(CENTRAL, "files")
+    # File for printing parameters
+    FILE:   Final[str] = osp.join(DIR, "params.json")
 
     writing: Signal = Signal(bool)
 
@@ -239,8 +325,7 @@ class Parameters(QWidget, params.Ui_mainwindow):
                 # Shortcut to catch errors
                 def get(key: str) -> str:
                     nonlocal values
-                    try: return values[key]
-                    except: return ""
+                    return values.get(key, "")
 
                 self.query_edit.setText(get(Parameters.LABELS["limit"]))
                 self.api_edit.setText(get(Parameters.LABELS["api"]))
@@ -248,15 +333,18 @@ class Parameters(QWidget, params.Ui_mainwindow):
                 self.thr_edit.setText(get(Parameters.LABELS["thr"]))
                 self.step_edit.setText(get(Parameters.LABELS["step"]))
 
+    @Slot(bool)
     @override
     def setEnabled(self: Self, state: bool) -> None:
         self.save_info.setEnabled(state)
 
+    @Slot(bool)
     @override
     def setDisabled(self: Self, state: bool) -> None:
         self.setEnabled(not state)
 
     # Prints the data in the line edits to the json file
+    @Slot()
     def printInfo(self: Self) -> None:
         self.writing.emit(True)
         funcs.mkabsent(Parameters.DIR)
@@ -352,17 +440,20 @@ class Find(QWidget, find.Ui_mainwindow):
         self.clear_search.clicked.connect(self.remove_signal.emit)
         self.clear_edits.clicked.connect(self.clear)
 
+    @Slot(bool)
     @override
     def setEnabled(self: Self, state: bool) -> None:
         self.clear_search.setEnabled(state)
         self.clear_edits.setEnabled(state)
         self.find_but.setEnabled(state)
 
+    @Slot(bool)
     @override
     def setDisabled(self: Self, state: bool) -> None:
         return self.setEnabled(not state)
 
     # Clear all edits
+    @Slot()
     def clear(self: Self) -> None:
         for edit in (self.title_edit, self.journal_edit, self.doi_edit, self.label): edit.clear()
 
@@ -372,18 +463,18 @@ class Find(QWidget, find.Ui_mainwindow):
         arguments: dict[str, Any] = {}
 
         # Shortcuts
-        def appendNotEmpty[Q](name: str, arg: Q | None) -> None:
+        def shortcut[Q](name: str, arg: Q | None) -> None:
             nonlocal arguments
             if not arg: arguments[name] = arg
 
         # Note that these names correspond to the args in the "find" function
         # In the FindingView so that when calling "find" with "send_report",
         # You can assign the parameters directly with **report
-        appendNotEmpty("date",    (self.from_date.date().toPython(), self.to_date.date().toPython()))
-        appendNotEmpty("journal", (self.journal_regex.isChecked(), self.journal_edit.text()))
-        appendNotEmpty("title",   (self.title_regex.isChecked(), self.title_edit.text()))
-        appendNotEmpty("label",   self.label_box.currentText())
-        appendNotEmpty("doi",     self.doi_edit.text())
+        shortcut("date",    (self.from_date.date().toPython(), self.to_date.date().toPython()))
+        shortcut("journal", (self.journal_regex.isChecked(), self.journal_edit.text()))
+        shortcut("title",   (self.title_regex.isChecked(), self.title_edit.text()))
+        shortcut("label",   self.label_box.currentText())
+        shortcut("doi",     self.doi_edit.text())
 
         return arguments
 
@@ -392,16 +483,21 @@ class Find(QWidget, find.Ui_mainwindow):
 The class representing the complete dataset.
 That imply that this manages all the data by itself.
 
+In addition, since it manages the data and the main winow cannot
+act without data. It is understood that there is no need for any
+internal attribute to represent some specific delegator (there is
+only one main delegator for the UI).
+
 It also supports multithreading. See method signature and definition
 for a specific method.
 
 @author  Thomas Gauthier
-@version 0.3
+@version 0.4
 """
 @final
 class Data(QWidget, data.Ui_mainwindow):
     # Main file where the dumps are..... well..... dumped
-    CORE_DUMP: Final[str] = CENTRAL + "dumps/"
+    CORE_DUMP: Final[str] = osp.join(CENTRAL, "dumps")
 
     """
     An inner class used to link up the different kinds of
@@ -411,82 +507,68 @@ class Data(QWidget, data.Ui_mainwindow):
     can modify the data without this class being notified.
     """
     class JoinedList(list):
-        @overload
         def __init__(self: Self) -> None:
             super().__init__()
-            self.leaser: list[tuple[SignalInstance, list] | None] = []
-            self.emiters: set[SignalInstance] = {}
-
-        @override
-        def __init__(self: Self, iterable: Iterable[tuple[tuple[SignalInstance, list] | None, Paper]] | Iterable, /) -> None:
-            super.__init__()
-            self.leaser: list[tuple[SignalInstance, list] | None] = []
-            self.emiters: set[SignalInstance] = {}
-            self.extend(iterable)
+            self.leasers:  list[tuple[SignalInstance, list] | None] = list()
+            self.emitters: set[SignalInstance] = set()
 
         @override
         def copy(self: Self) -> list:
             clone: Data.JoinedList = []
-            for item in range(len(self)): clone.append((self[item], self.leaser[item]))
+            for item in range(len(self)): clone.append(self[item])
             return clone
 
         @override
-        def append(self: Self, instance: Paper) -> Never:
-            self.append((None, instance))
+        def append(self: Self, item: Any) -> None:
+            raise Exception("Not implemented")
 
-        @overload
-        def append(self: Self, instance: Paper, lease: tuple[SignalInstance, list] | None = None, /) -> None:
+        def append(self: Self, lease: tuple[SignalInstance, list] | None, instance: Paper, /) -> None:
             super().append(instance)
-            self.leaser.append(lease)
-            self.emiters.add(lease)
+            self.leasers.append(lease)
 
-        @overload
-        def append(self: Self, combined: tuple[tuple[SignalInstance, list] | None, Paper], /) -> None:
-            super().append(combined[1])
-            self.leaser.append(combined[0])
-            self.emiters.add(combined[0])
+            if lease is not None:
+                lease[1].append(instance)
+                self.emitters.add(lease[0])
 
         @override
-        def extend(self: Self, iterable: Iterable[tuple[tuple[SignalInstance, list] | None, Paper]] | Iterable, /) -> None:
-            for item in iterable: self.append(item)
+        def extend(self: Self, iterable: Iterable[tuple[tuple[SignalInstance, list] | None, Paper]], /) -> None:
+            for item in iterable: self.append(*item)
 
         @override
         def pop(self: Self, index: Any = -1, /) -> tuple[tuple[SignalInstance, list] | None, Paper]:
-            val: tuple[tuple[SignalInstance, list]] | None = self.leaser.pop(index)
-            self.emiters.add(val)
-            return (val, super().pop(index))
+            val: tuple[SignalInstance, list] | None = self.leasers.pop(index)
+            paper: Paper = super().pop(index)
+
+            if val is not None:
+                self.emitters.add(val[0])
+
+            if paper in val[1]:
+                val[1].remove(paper)
+
+            return (val, paper)
 
         @override
-        def insert(self: Self, index: Any, obj: Paper, /) -> Never:
-            raise self.insert(index, (None, obj))
-
-        @overload
-        def insert(self: Self, index: Any, obj: Paper, lease: tuple[SignalInstance, list] | None = None, /) -> Never:
+        def insert(self: Self, index: Any,  lease: tuple[SignalInstance, list] | None, obj: Paper, /) -> Never:
             super().insert(index, obj)
-            self.leaser.insert(index, lease)
-            self.emiters.add(lease)
+            self.leasers.insert(index, lease)
 
-        @overload
-        def insert(self, index: Any, obj: tuple[tuple[SignalInstance, list] | None, Paper], /) -> Never:
-            super().insert(index, obj[1])
-            self.leaser.insert(index, obj[0])
-            self.emiters.add(obj[0])
+            if lease is not None:
+                self.emitters.add(lease[0])
+
+            if obj not in lease[1]:
+                lease[1].append(obj)
 
         @override
         def remove(self: Self, value: Paper) -> None:
             index: int = super().index(value)
             super().pop(index)
 
-            obj: tuple[SignalInstance, list] | None = self.leaser.pop(index)
-            if obj[0] is not None:
-                obj[1].pop(index)
-                self.emiters.add(obj[0]) # Faster than calling each time the emit()
+            obj: tuple[SignalInstance, list] | None = self.leasers.pop(index)
+            if obj is not None:
+                obj[1].remove(value)
+                self.emitters.add(obj[0])  # Faster than calling each time the emit()
 
-        @overload
-        def remove(self: Self, other: tuple[tuple[SignalInstance, list] | None, Paper]) -> None:
-            self.remove(other[1])
-
-        def remove_all(self: Self, other: tuple[tuple[SignalInstance, list] | None, Paper] | Paper) -> None:
+        def removeAll(self: Self, other: Paper) -> None:
             for item in other: self.remove(item)
 
         @override
@@ -509,13 +591,24 @@ class Data(QWidget, data.Ui_mainwindow):
 
         @override
         def __getitem__(self: Self, index: Any, /) -> tuple[tuple[SignalInstance, list] | None, Paper]:
-            return (self.leaser[index], super()[index])
+            return (self.leasers[index], super().__getitem__(index))
 
         # The rest of the methods will be the same
-
         def emit(self: Self) -> None:
-            for emiter in self.emiters:
-                if emiter is not None: emiter.emit()
+            for emitter in self.emitters:
+                if emitter is not None: emitter.emit()
+
+        def switch(self: Self, paper: Paper, new: tuple[SignalInstance, list] | None) -> None:
+            index: int = super().index(paper)
+            temp: tuple[SignalInstance, list] | None = self.leasers[index]
+
+            if temp == new: return
+            self.leasers[index] = new
+
+            if temp is not None: temp[1].remove(paper)
+            if new is not None: new[1].append(paper)
+
+            self.emitters.update(new[0], temp[0])
 
     being_modified:    Signal = Signal(bool)
     validation_signal: Signal = Signal()
@@ -533,15 +626,15 @@ class Data(QWidget, data.Ui_mainwindow):
         self.__lock: Lock = Lock()
 
         # Callbacks
-        self.add_but.clicked.connect(lambda ignored: Process(target=self.add).run())
-        self.remove_but.clicked.connect(lambda ignored: Process(target=self.remove).run())
+        self.add_but.clicked.connect(lambda ignored: Thread(target=self.add).start())
+        self.remove_but.clicked.connect(lambda ignored: Thread(target=self.remove).start())
         self.find_but.clicked.connect(toggler(self.find_window))
 
         # Data attributes which are represented as a tuple of a Signal and list
         # This was done for the signals of the Qt API
         self.validation: tuple[SignalInstance, list] = (self.validation_signal, [])
-        self.training:   tuple[SignalInstance, list] = (self.training_signal, [])
-        self.dataset:    tuple[SignalInstance, Data.JoinedList] = (self.dataset_signal, [])
+        self.training:   tuple[SignalInstance, list] = (self.training_signal,   [])
+        self.dataset:    tuple[SignalInstance, Data.JoinedList] = (self.dataset_signal, Data.JoinedList())
 
         # Widgets
         self.__papers: FindingView = FindingView(
@@ -556,17 +649,23 @@ class Data(QWidget, data.Ui_mainwindow):
         self.specifier.addItems(["Training", "Validation", "None"])
 
         # Connect callbacks in the find window
+        # In theory, this should not have any problems with the ui objects being in another thread since
+        # It only emits signals and, thus, should not create any QObjects
         self.find_window.find_signal.connect(
-        lambda : Process(
-            target=self.accessPapers,
-            args=(lambda papers: papers.find(**self.find_window.sendReport()),)
-            ).run()
+            lambda : self.accessPapers(
+                lambda papers: Thread(
+                    target=papers.find,
+                    kwargs=self.find_window.sendReport()
+                ).start()
+            )
         )
         self.find_window.remove_signal.connect(
-            lambda : Process(
-                target=self.accessPapers,
-                args=(lambda papers: papers.removeFound(**self.find_window.sendReport()),)
-            ).run()
+            lambda : self.accessPapers(
+                lambda papers: Thread(
+                    target=papers.removeFound,
+                    kwargs=self.find_window.sendReport()
+                ).start()
+            )
         )
 
         # Connecting with the finding view for updating
@@ -574,12 +673,14 @@ class Data(QWidget, data.Ui_mainwindow):
         self.being_modified.connect(self.setDisabled)
         self.being_modified.connect(self.find_window.setDisabled)
 
+    @Slot(bool)
     @override
     def setEnabled(self: Self, state: bool) -> None:
-        self.remove_button.setEnabled(state)
+        self.remove_but.setEnabled(state)
         self.find_window.setEnabled(state)
-        self.add_button.setEnabled(state)
+        self.add_but.setEnabled(state)
 
+    @Slot(bool)
     @override
     def setDisabled(self: Self, state: bool) -> None:
         return self.setEnabled(not state)
@@ -594,8 +695,8 @@ class Data(QWidget, data.Ui_mainwindow):
 
     Note that this calls, automatically, the functions self.dataset[0].emit() and self.dataset[1].emit()
     """
+    @Slot(object)
     def accessPapers(self: Self, function: Callable[[FindingView], None], wait: bool = True) -> bool:
-        print("Lock Access")
         # Note that, in theory, the result shouldn't be necessary, since you could
         # Very well just get the state from the Signal of this widget, but this could still be useful in the future
         res: bool = self.__lock.acquire(wait)
@@ -609,7 +710,6 @@ class Data(QWidget, data.Ui_mainwindow):
 
         self.being_modified.emit(False)
         self.__lock.release()
-        print("Unlocked Access")
 
         return res
 
@@ -621,15 +721,14 @@ class Data(QWidget, data.Ui_mainwindow):
     """
     @staticmethod
     def dump[Q](failures: list[Q], parent: QWidget | None = None) -> None:
-        print("Dumped")
         if not failures:
             funcs.mkabsent(Data.CORE_DUMP)
-            with open(Data.CORE_DUMP + "dump.txt", mode="w") as file:
-                file.writelines(failures)
+            with open(osp.join(Data.CORE_DUMP, datetime.now().strftime("%Y-%m-%d-%Hh%Mm") + ".txt"), mode="w") as file:
+                file.writelines(map(str, failures))
 
             mbFactory(
                 "Core Dumped",
-                "Parsing of lines failed. Core dumped in the \"files\" directory",
+                f"Parsing of lines failed. Core dumped in the {Data.CORE_DUMP} directory",
                 QMessageBox.Icon.Warning,
                 QMessageBox.StandardButton.Ok,
                 parent
@@ -637,8 +736,9 @@ class Data(QWidget, data.Ui_mainwindow):
 
     # Default callback for the adder
     def add(self: Self, text: str | None = None,  path: str | None = None) -> None:
-        _path: Path = Path(self.path.text() if path is not None else path)
+        global GLO_DEL
         text:   str = self.specifier.itemText() if text is None else text
+        _path: Path = Path(self.path.text()     if path is None else path)
 
         # Could also be done with a dictionary
         # But I don't feel like it
@@ -649,13 +749,24 @@ class Data(QWidget, data.Ui_mainwindow):
             case _: dataset = None
 
         failures: list[tuple[Path, int]] = []
-        try: self.accessPapers(lambda ignored: failures.extend(self._recursiveAdd(_path, dataset)))
-        except *Exception as ex:
-            errorFactory("Error in adding", ex.message + " in " + _path.absolute()).show()
+        try: self.accessPapers(
+                lambda papers: (
+                    failures.extend(self._recursiveAdd(dataset, _path)),
+                    papers.model.layoutChanged.emit()
+                )
+            )
+        except Exception as ex:
+            GLO_DEL.call(
+                lambda path, _self: errorFactory(
+                    "Error in adding",
+                    "Error in " + str(path.absolute()),
+                    _self
+                ).show(),
+                path=_path,
+                _self=self
+            )
 
-        print(f"Dataset Length: {len(self.dataset[1])}")
-
-        Data.dump(failures, self)
+        if failures: Data.dump(failures, self)
 
     """
     A method used for recursive adding.
@@ -672,12 +783,12 @@ class Data(QWidget, data.Ui_mainwindow):
     def _recursiveAdd(self: Self, dataset: tuple[SignalInstance, list] | None, path: Path) -> list[tuple[Path, int]]:
         failures: list[tuple[Path, int]] = []
         if path.is_dir():
-            for other in path.iterdir(): failures.extend(self._recursiveAdd(other.absolute()))
+            for other in path.iterdir(): failures.extend(self._recursiveAdd(dataset, other.absolute()))
         elif path.is_file():
             # Could maybe change this if it becomes a problem
             if not path.suffix == ".csv" and not path.suffix == ".txt": return
 
-            with open(path) as file:
+            with open(path, encoding="utf8") as file:
                 parsed: Paper | None = None
                 count:  int = -1
 
@@ -689,42 +800,49 @@ class Data(QWidget, data.Ui_mainwindow):
                         failures.append((path, count))
                         continue
 
+
                     # Parsed will not be None
                     # Must be done manually to find the lines
                     # If this is too long, either change the dataset to a set and not a list or use numpy
-                    present: bool = False
-                    for paper in self.dataset[1]:
-                        if paper[1] == parsed:
-                            if paper[0] is not None and paper[0] != dataset:  # The received dataset not the self.dataset
-                                paper[0][1].remove(paper[1])
-                                dataset[1].append(paper[1])
-                                paper[0] = dataset
-                            present = True
-                            break
+                    index: int = -1
+                    try: index = self.dataset[1].index(paper)
+                    except:
+                        self.dataset[1].append(dataset, parsed)
+                        continue
 
-                    if not present:
-                        self.dataset[1].append((dataset, parsed))
-                        if dataset is not None: dataset[1].append(parsed)
-        else: raise Exception("Bad file type")
-
-        self.dataset[0].emit()
-        self.dataset[1].emit()
+                    # The if is not necessary in this context, but is better understood and less bug prone
+                    if self.dataset[1].leasers[index] != dataset:
+                        self.dataset[1].switch(paper, dataset)
+        else: raise Exception("Bad file type")  # In the case of a link or othrer file format
 
         return failures
 
     # Default callback for the remover
     # Will show a QMessageBox based on the removal process
     def remove(self: Self, path: str | None = None) -> None:
-        _path: Path = Path(self.path.text() if path is not None else path)
+        global GLO_DEL
+        _path: Path = Path(self.path.text() if path is None else path)
 
         failures: list[tuple[Path, str, int]] = []
-        try: self.accessPapers(lambda ignored: failures.extend(self._recursivePemove(_path)))
-        except *Exception as ex:
-            errorFactory("Error in removing", ex.message + " in " + _path.absolute()).show()
+        try: self.accessPapers(
+            lambda papers: (
+                    failures.extend(self._recursiveRemove(_path)),
+                    papers.model.layoutChanged.emit()
+                )
+            )
+        except Exception as ex:
+            GLO_DEL.call(
+                lambda ex, path, _self: errorFactory(
+                    "Error in removing",
+                    ex.message + " in " + str(path.absolute()),
+                    _self
+                ).show(),
+                ex=ex,
+                path=_path,
+                _self=self
+            )
 
-        print(f"Dataset Length: {len(self.dataset[1])}")
-
-        Data.dump(failures, self)
+        if failures: Data.dump(failures, self)
 
     """
     A method used for recursive adding.
@@ -738,8 +856,8 @@ class Data(QWidget, data.Ui_mainwindow):
     and then remove all hits), but this is faster since you don't need to append to a list
     and then remove it, which would bring the runtime at twice the time.
     """
-    def _recursiveRemove(self: Self, path: Path) -> list[tuple[Path, str, int]]:
-        failures: list[tuple[Path, str, int]] = []
+    def _recursiveRemove(self: Self, path: Path) -> list[tuple[Path, int, int]]:
+        failures: list[tuple[Path, int, int]] = []
 
         if path.is_dir():
             for other in path.iterdir(): failures.extend(self._recursiveRemove(other.absolute()))
@@ -747,7 +865,7 @@ class Data(QWidget, data.Ui_mainwindow):
             # Could maybe change this if it becomes a problem
             if not path.suffix == ".csv" and not path.suffix == ".txt": return
 
-            with open(path) as file:
+            with open(path, encoding="utf8") as file:
                 parsed: Paper | None = None
                 count:  int = -1
                 for line in file.readlines():
@@ -757,21 +875,12 @@ class Data(QWidget, data.Ui_mainwindow):
                     # Search for a tuple and not an element
                     try: parsed = Paper.parseLine(line, str(path))
                     except:
-                        failures.append((path, "parsing", count))
+                        failures.append((path, 0, count))
                         continue
 
-                    removal: tuple[tuple[SignalInstance, list] | None, Paper] | None = None
-                    for element in self.dataset[1]:
-                        if element[1] == parsed:
-                            removal = element
-                            break
-
-                    if removal is not None: self.dataset[1].remove(removal)
-                    else: failures.append((path, "deleting", count))
+                    try: self.dataset[1].remove(parsed)
+                    except: failures.append((path, 1, count))
         else: raise Exception("Bad file type")
-
-        self.dataset[0].emit()
-        self.dataset[1].emit()
 
         return failures
 
@@ -785,7 +894,7 @@ class Data(QWidget, data.Ui_mainwindow):
     """
     def parse(self: Self, path: Path) -> tuple[list[tuple[Path, int]], list]:
         failures: list[tuple[Path, int]] = []
-        results:  list = []
+        results:  list[Paper] = []
 
         if path.is_dir():
             for other in path.iterdir():
@@ -796,7 +905,7 @@ class Data(QWidget, data.Ui_mainwindow):
             # Could maybe change this if it becomes a problem
             if not path.suffix == ".csv" and not path.suffix == ".txt": return
 
-            with open(path) as file:
+            with open(path, encoding="utf8") as file:
                 parsed: Paper | None = None
                 count:   int = -1
 
@@ -826,15 +935,13 @@ will emit a signal (from itself) with the reference of the list of the
 stems and will also print out, at the default location,
 a list of the stems in case of a crash.
 
-Note that T must be an instance of the Paper class.
-
 @author  Thomas Gauthier, Janosch Ortmann
-@version 0.1
+@version 0.2
 """
 @final
 class Loading(QDialog, loading.Ui_mainwindow):
     # Default write location of the stems
-    DEFAULT_WRITE: Final[str] = CENTRAL + "results/"
+    DEFAULT_WRITE: Final[str] = osp.join(CENTRAL, "results", "")
 
     done: Signal = Signal()
 
@@ -850,36 +957,49 @@ class Loading(QDialog, loading.Ui_mainwindow):
         self.setupUi(self)
 
         self.__min_words:   int = min_words
-        self.__samples: list = samples # Not copied here since it will be afterwards
+        self.__samples:    list = samples  # Not copied here since it will be afterwards
 
+    # Automatically allocates to the delegator
     def getStems(self: Self) -> None:
+        global GLO_DEL
         # This is why this is not synchronized
         # Introspection for callable. Required later for the function "fit_transform"
-        moving: Callable[..., Any] = self.__samples.__getitem__
-        self.samples.__getitem__ = lambda index: str(moving(index))
+        length_samples: int = len(self.__samples)
+        length:         int  = length_samples  # Current Length for the progress bar
+        GLO_DEL.call(lambda _self: _self.process.setText("Tokenizing papers by their representation..."), _self=self)
 
-        self.process.setText("Tokenizing papers by their representation...")
-        tokens: np.ndarray = np.empty((len(self.__samples), 1))
-        length: int = len(self.__samples) # Current Length for the progress bar
+        tokens:  np.ndarray = np.empty((length_samples, 1), dtype=np.object_)
+        lowered: np.ndarray = np.empty(length_samples,      dtype=np.object_)
         for count in range(length):
+            lowered[count] = str(self.__samples[count]).lower()
             # Faster than to always append
-            tokens[count] = wordpunct_tokenize(self.__samples[count].lower())
-            self.bar.setValue(round(25 * count / length))
-        tokens = np.ravel(tokens)
+            tokens[count][0] = wordpunct_tokenize(lowered[count])
+            GLO_DEL.call(lambda _self: _self.bar.setValue(round(25 * count / length)), _self=self)
+        tokens = np.concatenate(np.ravel(tokens))
 
-        self.process.setText("Removing invalid words...")
+        GLO_DEL.call(lambda _self: _self.process.setText("Removing invalid words..."), _self=self)
         sw = stopwords.words('english')
         punct = list(string.punctuation)
 
         length = len(sw)
         for count in range(length):
             tokens = np.delete(tokens, tokens == sw[count])
-            self.bar.setValue(25 + round(10 * count / length))
+            GLO_DEL.call(
+                lambda _self, count, length: _self.bar.setValue(25 + round(10 * count / length)),
+                _self=self,
+                count=count,
+                length=length
+            )
 
         length = len(punct)
         for count in range(length):
             tokens = np.delete(tokens, tokens == punct[count])
-            self.bar.setValue(35 + round(10 * count / length))
+            GLO_DEL.call(
+                lambda _self, count, length: _self.bar.setValue(35 + round(10 * count / length)),
+                _self=self,
+                count=count,
+                length=length
+            )
 
         numeric_mask: np.ndarray = np.asarray([word.isnumeric() for word in tokens], dtype = bool)
         tokens = np.delete(tokens, np.where(numeric_mask)[0])
@@ -904,51 +1024,63 @@ class Loading(QDialog, loading.Ui_mainwindow):
         library, only single grams are stemmed whilst the rest is just parsed.
         """
 
-        self.process.setText("Stemming words...")
+        GLO_DEL.call(lambda _self: _self.process.setText("Stemming words..."), _self=self)
         stemmer: PorterStemmer = PorterStemmer()
         for count in range(len(tokens)):
             tokens[count] = stemmer.stem(tokens[count])
-            self.bar.setValue(45 + round(10 * count / length))
+            GLO_DEL.call(
+                lambda _self, count, length: _self.bar.setValue(45 + round(10 * count / length)),
+                _self=self,
+                count=count,
+                length=length
+            )
         del stemmer, numeric_mask
 
-        self.process.setText("Counting uni grams...")
+        GLO_DEL.call(
+            lambda _self: _self.process.setText("Counting uni grams..."),
+            _self=self
+        )
         count:     np.ndarray =  np.asarray(list(Counter(tokens).items()))
+
+        if count.size == 0: return  # Nothing is worth doing if no single stem
         uni_found: np.ndarray = count[count[:, 1].astype(np.int_) >= self.__min_words]
         del count
 
         # Removing common words
-        uni_found = uni_found[(len(string) >= 4 for string in uni_found[:, 0]), :]
+        # Note to self: You cannot have a tuple of booleans, it must be a list of booleans
+        uni_found = uni_found[[len(string) >= 4 for string in uni_found[:, 0]], :]
 
         # Counting each valid gram in the texts. Note that this is required since
         # We want the stems and not the words, thus a CountVectorizer cannot be used
-        uni_sample_found: np.ndarray = np.empty((len(self.__samples), uni_found.size[0]))
+        uni_sample_found: np.ndarray = np.empty((length_samples, uni_found.shape[0]))
         for sample_index in range(uni_sample_found.shape[0]):
             for stem_index in range(uni_sample_found.shape[1]):
-                uni_sample_found[sample_index, stem_index] = self.__samples[sample_index].count(uni_found[stem_index, 0])
-        self.bar.setValue(65)
+                uni_sample_found[sample_index, stem_index] = lowered[sample_index].count(uni_found[stem_index, 0])
+        GLO_DEL.call(lambda _self: _self.bar.setValue(65), _self=self)
+
+        del lowered
 
         # Initializing for bi grams
         self.process.setText("Counting bi grams...")
         vectorizer: CountVectorizer = CountVectorizer(ngram_range=(2, 2), stop_words=sw)
-        bi_found: np.ndarray        = vectorizer.fit_transform(self.__samples).toarray()
-        bi_words: np.ndarray        = vectorizer.get_feature_names_out()
+        bi_found:        np.ndarray = vectorizer.fit_transform(map(str, self.__samples)).toarray()
+        bi_words:        np.ndarray = vectorizer.get_feature_names_out()
 
         def update_bi(respecting: np.ndarray | list[bool]) -> None:
             nonlocal bi_words, bi_found
             bi_words = bi_words[respecting]
             bi_found = bi_found[:, respecting]
-
-        update_bi(np.sum(bi_found, axis=0) >= self.__min_words)                       # Removing grams with not enough words
-        update_bi(~np.isin(bi_words, punct))                                          # Removing grams with punctuation
-        update_bi(not any(char.isdigit() for char in string) for string in bi_words)  # Or containing digits
-        self.bar.setValue(75)
+        update_bi(np.sum(bi_found, axis=0) >= self.__min_words)                         # Removing grams with not enough words
+        update_bi(~np.isin(bi_words, punct))                                            # Removing grams with punctuation
+        update_bi([not any(char.isdigit() for char in string) for string in bi_words])  # Or containing digits
+        GLO_DEL.call(lambda _self: _self.bar.setValue(75), _self=self)
 
         del update_bi
 
         # Initializing for tri grams
-        self.process.setText("Counting tri grams...")
+        GLO_DEL.call(lambda _self: _self.process.setText("Counting tri grams..."), _self=self)
         vectorizer: CountVectorizer = CountVectorizer(ngram_range=(3, 3), stop_words=sw)
-        tri_found:       np.ndarray = vectorizer.fit_transform(self.__samples).toarray()
+        tri_found:       np.ndarray = vectorizer.fit_transform(map(str, self.__samples)).toarray()
         tri_words:       np.ndarray = vectorizer.get_feature_names_out()
 
         def update_tri(respecting: np.ndarray | list[bool]) -> None:
@@ -959,24 +1091,26 @@ class Loading(QDialog, loading.Ui_mainwindow):
         # Removing unacceptable tri grams
         update_tri(np.sum(tri_found, axis=0) >= self.__min_words)                         # Removing grams with not enough words
         update_tri(~np.isin(tri_words, punct))                                            # Removing grams with punctuation
-        update_tri((not any(char.isdigit() for char in string) for string in tri_words))  # Or containing digits
-        self.bar.setValue(90)
+        update_tri([not any(char.isdigit() for char in string) for string in tri_words])  # Or containing digits
+        GLO_DEL.call(lambda _self: _self.bar.setValue(90), _self=self)
 
         del update_tri
 
-        self.process.setText("Printing grams...")  # Done for safekeeping
+        GLO_DEL.call(lambda _self: _self.process.setText("Printing grams..."), _self=self)  # Done for safekeeping
         self.grams: np.ndarray = np.concatenate((uni_found[:, 0], bi_words, tri_words))
 
         # Shortcut so that you won't have to do this in the MainWindow
         self.grams_found: np.ndarray = np.concatenate((uni_sample_found, bi_found, tri_found), axis=1)
         funcs.mkabsent(Loading.DEFAULT_WRITE)
-        pd.DataFrame(self.grams).to_csv(Loading.DEFAULT_WRITE + "stems.txt", sep='\n')
+        pd.DataFrame(self.grams).to_csv(
+            osp.join(Loading.DEFAULT_WRITE, datetime.now().strftime("%Y-%m-%d-%Hh%Mm") + ".txt"),
+            sep=',',
+            header=False,
+            index=False
+        )
 
-        self.process.setText("Finished")
-        self.bar.setValue(100)
+        GLO_DEL.call(lambda _self: (_self.process.setText("Finished"), _self.bar.setValue(100)), _self=self)
 
-        # Removing introspection funnies
-        self.__samples.__getitem__ = moving
         self.done.emit()
 
 """
@@ -990,14 +1124,12 @@ so that the main window can latch on it widhout doing any modifications to the s
 The querying starts a new process
 
 @author  Thomas Gautier, Janosch Ortmann
-@version 0.1
+@version 0.2
 """
 @final
 class First(QWidget, first.Ui_first_option):
     # The default setting for when the directory isn't specified
-    DEFAULT_QUERY: Final[str] = CENTRAL + "query/"
-    # The number of parallel processing threads
-    POOL_COUNT:    Final[int] = 4
+    DEFAULT_QUERY: Final[str] = osp.join(CENTRAL, "query")
     # Number of queries per iteration
     COUNT:         Final[int] = 100
     # The name of the files that will be printed
@@ -1012,11 +1144,26 @@ class First(QWidget, first.Ui_first_option):
         super().__init__(parent)
         self.setupUi(self)
 
-        self.__lock:      Lock = Lock()
-        # Shortcut for declaring the processes
-        shortcut: Callable[[SignalInstance, QEvent], None] = lambda signal: Process(
-            target=(lambda : (self.query(), signal.emit()))
-        ).run()
+        self.__lock: Lock = Lock()
+        def _process(signal: SignalInstance) -> None:
+            try:
+                # In the case that we want, in the future, the thread to do something else while waiting
+                asyncio.run(self.query())
+                signal.emit()
+            except: pass
+            finally:
+                global GLO_DEL
+                def do() -> None:
+                    nonlocal self
+                    self.progress.setParent(None)
+                    del self.progress
+                    self.querying.emit(False)
+                GLO_DEL.call(do)
+
+                self.querying.emit(False)
+                self.__lock.release()
+
+        shortcut: Callable[[SignalInstance], None] = lambda signal: Thread(target=_process, args=(signal,)).start()
 
         # Asynchronously querying
         self.remove.clicked.connect(lambda ignored: shortcut(self.remove_signal))
@@ -1025,65 +1172,81 @@ class First(QWidget, first.Ui_first_option):
         # Deactivate multiple querying at the same time
         self.querying.connect(self.setDisabled)
 
+    @Slot(bool)
     @override
     def setEnabled(self: Self, state: bool) -> None:
         self.add.setEnabled(state)
         self.remove.setEnabled(state)
 
+    @Slot(bool)
     @override
     def setDisabled(self: Self, state: bool) -> None:
         return self.setEnabled(not state)
 
     async def query(self: Self) -> None:
-        self.__lock.acquire(blocking=False)
+        global GLO_DEL
+        self.querying.emit(True)
+
+        def do() -> None:
+            nonlocal self
+            self.progress = QProgressBar(self.variables)
+            self.progress.setSizePolicy(
+                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Fixed
+            )
+            self.variables.layout().addWidget(self.progress)
+
+        GLO_DEL.call(do)
+
+        if not self.__lock.acquire(blocking=False):
+            GLO_DEL.call(
+                lambda _self: errorFactory(
+                    "Error in querying",
+                    "Instance of querying already in process.",
+                    _self
+                ).show(),
+                _self=self
+            )
+            raise ValueError()
 
         """
         --------------------------------------------------
                         Parameter validation
         --------------------------------------------------
         """
-        self.querying.emit(True)
 
         # Temporary variable
         text: str = self.directory_edit.text()
-        directory: Path = Path(text if text is not None else First.DEFAULT_QUERY)
+        self.directory: Path = Path(text if text else First.DEFAULT_QUERY)
         del text
 
-        if not osp.exists(directory) or not osp.isdir(directory):
-            errorFactory(
-                "Invalid Directory",
-                "The directory given was invalid",
-                self
-            ).show()
-            return
-
-        self.directory: Path = directory
-        del directory
-
-        self.setEnabled(False)
-        self.loading: QProgressBar = QProgressBar()
-        self.loading.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.variables.addChildWidget(self.loading)
+        funcs.mkabsent(self.directory)
 
         if not osp.exists(Parameters.FILE) or not osp.isfile(Parameters.FILE):
-            errorFactory(
-                "Parameters not saved",
-                "The parameters file was not found",
-                self
-            ).show()
-            return
+            GLO_DEL.call(
+                lambda _self: errorFactory(
+                    "Parameters not saved",
+                    "The parameters file was not found.",
+                    _self
+                ).show(),
+                _self=self
+            )
+            raise ValueError()
 
         val_per: float = 0
         bad_val: bool = False
         try: val_per = float(self.sample_edit.text())
         except: bad_val = True
         if val_per <= 0 or 1 <= val_per or bad_val:
-            errorFactory(
-                "Bad validation size",
-                "The validation size isn't a valid percentage.",
-                self
-            ).show()
-            return
+            GLO_DEL.call(
+                lambda _self: errorFactory(
+                    "Bad validation size",
+                    "The validation size isn't a valid percentage.",
+                    _self
+                ).show(),
+                _self=self
+            )
+            raise ValueError()
         del bad_val
 
         sample_per: float = 0
@@ -1091,13 +1254,31 @@ class First(QWidget, first.Ui_first_option):
         try: sample_per = float(self.sample_edit.text())
         except: bad_sample = True
         if sample_per <= 0 or 1 <= sample_per or val_per + sample_per >= 1 or bad_sample:
-            errorFactory(
-                "Bad sample size",
-                "The sample size isn't a valid percentage.",
-                self
-            ).show()
-            return
+            GLO_DEL.call(
+                lambda _self: errorFactory(
+                    "Bad sample size",
+                    "The sample size isn't a valid percentage.",
+                    _self
+                ).show(),
+                _self=self
+            )
+            raise ValueError()
         del bad_sample
+
+        date:    str = self.date_edit.text()
+        matches: list[str] = re.findall(R"\d{4}-\d{4}", date)
+        if (len(matches) != 1 and date) or (date and len(date) != len(matches[0])) or (int(date[:4]) > int(date[5:])):
+            GLO_DEL.call(
+                    lambda _self : errorFactory(
+                    "Bad date range",
+                    "The date range given isn't valid.",
+                    _self
+                ).show(),
+                _self=self
+            )
+            raise ValueError()
+        else: date = matches[0]
+        del matches
 
         params: dict[str, str] = appendParams()
 
@@ -1107,55 +1288,78 @@ class First(QWidget, first.Ui_first_option):
         --------------------------------------------------
         """
 
-        limit: int = int(params[Parameters.LABELS["limit"]])
+        limit: int = int(params["limit"])
+        key:   str = params["api"]
         processed: Any = 0
 
         # Left as string to print them in file, where the parsing will happen later
-        received: dict[str, str] = {
-            "titles": [],
+        received: dict[str, list[str]] = {
+            "titles":    [],
             "abstracts": [],
-            "journals": [],
-            "dates": [],
-            "doi": [],
-            "missing": []
+            "journals":  [],
+            "dates":     [],
+            "doi":       []
         }
 
-        self.loading.setMaximum(limit)
-
+        GLO_DEL.call(lambda _self: _self.progress.setMaximum(limit), _self=self)
         while processed < limit:
-            processed += First.PROCESSING
-            url: str = f"https://api.elsevier.com/content/search/scopus?apiKey={params[Parameters.LABELS["api"]]}&query={quote(self.query.document().toPlainText())}&view=\"COMPLETE\"&start={processed}&count={First.COUNT}"
+            # TODO: CHANGE THE VIEW FOR THE FINAL
+            url: str = f"https://api.elsevier.com/content/search/scopus?apiKey={key}{f"&date={date}" if date else ""}&query={quote(self.query_box.document().toPlainText())}&view=STANDARD&start={processed}&count={min(First.COUNT, limit - processed)}"
+            processed += First.COUNT
 
-            entry: Any = None
+            entries: Any = None
             try:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(url, raise_for_status=True) as response:
-                        entries = await response.json()['search-results']
-                        if not entry: break # No more entries => Nothing else to fetch
-            except:
-                errorFactory(
-                    "Critical Error",
-                    "Fetching of scopus failed. Please check your internet connection.",
-                    self
-                ).show()
-                return
+                    async with session.get(
+                        url,
+                        raise_for_status=True,
+                        headers={
+                            'X-ELS-APIKey':    key,
+                            'X-ELS-Insttoken': params["token"]
+                        }
+                    ) as response:
+                        entries = await response.json()
+                        # Funny waiting in coroutine; __getitem__(key) must be called after
+                        entries = entries['search-results']
+
+                        if not entries: break  # No more entries => Nothing else to fetch
+            except aiohttp.ClientResponseError as ex:
+                GLO_DEL.call(
+                    lambda _self, ex: errorFactory(
+                        "Critical Error",
+                        f"Fetching of scopus failed with status {ex.status}. Hint: Check your API key if it allows a COMPLETE view.",
+                        _self
+                    ).show(),
+                    _self=self,
+                    ex=ex
+                )
+                raise ex
+            except Exception as ex:
+                GLO_DEL.call(
+                    lambda _self: errorFactory(
+                        "Critical Error",
+                        f"Fetching of scopus failed",
+                        _self
+                    ).show(),
+                    _self=self
+                )
+                raise ex
 
             # Assured that entry is the response from the server
-            for entry in entries:
-                if not entry["dc:description"]: received["missing"].append()
-                else:
-                    shorting: Callable[..., Any] = lambda x: "Unknown" if x is None else x
-                    received["abstracts"].append(entry["dc:description"])
-                    received["doi"].append(shorting(entry["prism:doi"]))
-                    received["titles"].append(shorting(title_value = entry['dc:title']))
-                    received["journals"].append(shorting(entry['prism:publicationName']))
-                    received["dates"].append(shorting(entry['prism:coverDate']))
+            for entry in entries["entry"]:
+                short: Callable[..., Any] = lambda var: entry.get(var, None)
+                received["abstracts"].append(entry.get("dc:description", ""))
+                received["journals"].append(short("prism:publicationName"))
+                received["titles"].append(short("dc:title"))
+                received["dates"].append(short("prism:coverDate"))
+                received["doi"].append(short("prism:doi"))
 
-            self.loading.setValue(processed)
+                GLO_DEL.call(lambda _self: _self.progress.setValue(processed), _self=self)
 
         # In case it wasn't fully loaded
-        self.loading.setValue(self.loading.maximum())
-        del limit, params, processed, start
+        GLO_DEL.call(lambda _self: _self.progress.setValue(_self.progress.maximum()), _self=self)
+        del limit, params, processed
+
 
         """
         --------------------------------------------------
@@ -1189,31 +1393,37 @@ class First(QWidget, first.Ui_first_option):
         and training, but note that if this is done, the add method in the Data class must also be modified.
         """
         # Please leave the variables used once, it's easier to understand the code this way
+
         number: Final[int] = len(citations)
 
         sample_index: list[int] = random.sample(range(number), math.ceil(number * sample_per))
-        sample:     np.ndarray = citations[sample_index, :]
+        sample:      np.ndarray = citations[sample_index, :]
+        citations:   np.ndarray = np.delete(citations, sample_index, axis=0)
 
-        validation_index: list[int] = random.sample(range(number), math.ceil(number * val_per))
-        validation: np.ndarray = citations[validation_index, :]
+        val_index:   list[int] = random.sample(range(number - len(sample)), math.ceil(number * val_per))
+        validation: np.ndarray = citations[val_index, :]
+        citations:  np.ndarray = np.delete(citations, val_index, axis=0)
 
-        del number, sample_index, validation_index
+        del number, sample_index, val_index
 
         funcs.mkabsent(First.DEFAULT_QUERY)
+
         # Shortcut
-        printer: Callable[..., None] = lambda path, data: pd.DataFrame(data).to_csv(path, quoting=csv.QUOTE_ALL)
+        printer: Callable[..., None] = lambda file, data: (
+            funcs.mkabsent(self.directory),
+            pd.DataFrame(data).to_csv(
+                osp.join(self.directory, file),
+                quoting=csv.QUOTE_ALL,
+                doublequote=False,
+                escapechar="\\",
+                index=False,
+                header=False
+            )
+        )
 
-        printer(self.directory + First.FILES[0], validation)
-        printer(self.directory + First.FILES[1], citations)
-        printer(self.directory + First.FILES[2], sample)
-
-        # Cleaning up
-        self.setEnabled(True)
-        self.variables.removeWidget(self.loading)
-        del self.loading
-
-        self.querying.emit(False)
-        self.__lock.release()
+        printer(First.FILES[0], validation)
+        printer(First.FILES[1], citations)
+        printer(First.FILES[2], sample)
 
 """
 Class representing the second window.
@@ -1236,11 +1446,13 @@ class Second(QWidget, second.Ui_second_option):
         self.clear.clicked.connect(self.clear_signal.emit)
         self.plot.clicked.connect(self.plot_signal.emit)
 
+    @Slot(bool)
     @override
     def setEnabled(self: Self, state: bool) -> None:
         self.clear.setEnabled(state)
         self.plot.setEnabled(state)
 
+    @Slot(bool)
     @override
     def setDisabled(self: Self, state: bool) -> None:
         self.setEnabled(not state)
@@ -1344,16 +1556,19 @@ file path.
 """
 import json
 def appendParams() -> dict[str, str]:
+    global GLO_DEL
     params: dict[str, str] = {}
     with open(Parameters.FILE) as file:
         js: Any = json.loads(file.read())
-
-        for param in Parameters.LABELS.keys():
-            try: params[param] = js[param]
+        for key, val in Parameters.LABELS.items():
+            try: params[key] = js[val]
             except:
-                errorFactory(
-                    "Bad argument",
-                    "Parameter received had an error (" + param + ')'
-                ).show()
+                GLO_DEL.call(
+                    lambda key: errorFactory(
+                        "Bad argument",
+                        "Parameter received had an error (" + key + ')'
+                    ).show(),
+                    key=key
+                )
                 return
     return params

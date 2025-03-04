@@ -8,12 +8,14 @@ It only contains the MainWindow.
 @version 0.2
 """
 import sys
+#TODO: DEFAULT VALUES, REMOVE PRINTS, MORE QUERY PARAMS
 
 # Done to access all newer features of the typing library such as generics
 if sys.version_info < (3, 12):
     sys.stderr.write("Python version inferior to 3.12+. Please make sure to update to a newer version.")
     sys.exit()
 
+from PySide6.QtCore    import Qt
 from PySide6.QtWidgets import (
                                 QApplication,
                                 QDialog,
@@ -30,18 +32,18 @@ if __name__ != "__main__":
 
 # I <3 "QPixmap: Must construct a QGuiApplication before a QPixmap"
 app: QApplication = QApplication([])
-
-from multiprocessing import Lock, Queue, Process
+from multiprocessing import Queue
 from sklearn.metrics import confusion_matrix, accuracy_score, recall_score, precision_score, f1_score
 from sklearn.tree    import DecisionTreeClassifier
+from threading       import Lock, Thread
 from typing          import Final, Self, final
 from webbrowser      import open_new_tab
 
 from python.src.utils.files     import Paper, CENTRAL
 from python.src.utils.functions import cutoff, mkabsent
-from ui.display.entities        import FindingView, OperatingCurve, SelectionView, SelectionModel
-from ui.compiled import mainwindow
-from ui.windows  import *
+from ui.display.entities        import FindingView, OperatingCurve, SelectionView, SelectionModel, waitFactory
+from ui.compiled                import mainwindow
+from ui.windows                 import *
 
 import numpy   as np
 import sklearn.model_selection as ms
@@ -69,7 +71,9 @@ does the "synchronizing" of the app.
 class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
     # Github link for the "about" window
     GITHUB_LINK:   Final[str] = "https://github.com/janoschortmann/abstract-screening"
-    DEFAULT_DIR:  Final[str]  = CENTRAL + "results/"
+    # The default directory for the results of the probabilities
+    DEFAULT_DIR:   Final[str] = osp.join(CENTRAL, "results")
+    # The deault style of some QWidget
     DEFAULT_STYLE: Final[str] = "border: 1px solid grey;"
 
     # The initializer of the window.
@@ -96,40 +100,55 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         self.data.clicked.connect(toggler(self.data_window))
         self.about.clicked.connect(lambda : open_new_tab(MainWindow.GITHUB_LINK))
 
-        # Note that the display won't be deleted since it still may be useful for the user
-        def _finishing() -> None:
-            self.bottom.layout().removeWidget(self.options)
-            del self.options
+        """
+        A tuple representing the sequence of events this class will call.
+        This is done as a way to encapsulate methods in different steps.
 
-            self.options = Third()
-            self.bottom.insertWidget(0, self.options)
-            self.options.setParent(self.bottom)
+        Also, the exceptions must be thrown before the method changes the UI,
+        otherwise, the modifications will stay, which can lead to multiple issues
+        such as being locked out of the app.
 
-        # Connecting the data window with the central widget
-        # A tuple representing the sequence of events this class will call
-        # This is done for encapsulating the steps in different functions
+        In theory, there should be a "undo" of some step so that the exceptions can be
+        thrown everywhere, but that seems unnecessary, since the jobs of the procedures
+        here are only to setup and dismount components of the UI, not to do logic
+        (except the last one, obviously).
+        """
         sequence: tuple[Callable[..., Any]] = (
-            (lambda : (self.dismountFirst(), self.mountSecond())),
+            lambda : (self.dismountFirst(), self.mountSecond()),
             self.mountThird,
-            _finishing,
-            lambda : self.predictions(**self.options.sendReport())
+            self.mountForth,
         )
 
         ite: Iterable[Any] = iter(sequence)
+        cur: Callable[[None], None] = next(ite)
+        err: bool = False
         def _executeNext() -> None:
-            error: bool = True
-            # Don't need to catch the StopIteration exception since the last callable (self.predictions)
-            # Will stop the program once finished, thus the iteration will never go past the last callable
-            call: Callable[[], None] = next(ite)
-            while error:
-                try:
-                    call()
-                    error = False
-                except: pass
+            nonlocal ite, cur, err
+            cur = next(ite) if not err else cur
+            try:
+                cur()
+                err = False
+            except: err = True
 
         self.next.clicked.connect(_executeNext)
         self.mountFirst()
         self.show()
+
+    @Slot(bool)
+    @override
+    def setEnabled(self: Self, state: bool) -> None:
+        self.next.setEnabled(state)
+        self.options.setEnabled(state)
+        self.display.setEnabled(state)
+        self.data_window.setEnabled(state)
+
+        if self.find_window is not None:
+            self.find_window.setEnabled(state)
+
+    @Slot(bool)
+    @override
+    def setDisabled(self: Self, state: bool) -> None:
+        self.setEnabled(not state)
 
     # Function that sets up the first step of the procedure.
     def mountFirst(self: Self) -> None:
@@ -155,43 +174,29 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
             Synchronization of the training dataset
         --------------------------------------------------
         """
-        """
-        This wasn't put in another class since it requires Signals and isn't used anywhere
-        else at this current time.
-
-        An argument can be made to encapsulate this in a factory method here, but, I desire not to
-        since that would imply that the MainWindow acts outside of its desired purpose and,
-        in the future, can become a dependency on other classes, which is illogical since, well,
-        it's the central widget of the app. Having another class be dependent on this would make
-        the central widget as "just another class".
-
-        IF thou truly want to put it somewhere else, you must reimplement the Signal
-        for signaling.
-        """
-        training_queue: Queue = Queue()
         emptied: bool = True
-        lock = Lock()
+        lock:    Lock = Lock()
+        # List, in python, are synchronized and the Queue, from multiprocessing, was making me angry
+        queue:   list = []
 
         # I must admit that it would've been better to create a chain of command
         # Design here instead of random processes all around and windows which
         # States are dictated through signals
         def _addQueue(exe: Callable[[None], None]) -> None:
-            training_queue.put(exe)
+            nonlocal queue, emptied, lock
+            queue.append(exe)
             lock.acquire(timeout=0)
             if emptied:
                 emptied = False
 
                 def chaining(call: Callable[[None], None] | None = None) -> None:
-                    if call is not None: call()
-                    nonlocal emptied
+                    if call is not None: call()  # Should not create UI elements
+                    nonlocal emptied, queue
 
-                    if training_queue.empty(): emptied = True
-                    else: Process(target=chaining, args=(training_queue.get(),)).run()
-
-                chaining()
+                    if len(queue) == 0: emptied = True
+                    else: chaining(queue.pop(0))
+                Thread(target=chaining).start()
             lock.release()
-
-        del training_queue, emptied, lock
 
         # Styling for button
         self.find_but.setMinimumSize(80, 35)
@@ -214,61 +219,72 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                 Callbacks and synchronizing windows
         --------------------------------------------------
         """
-        # Tip for the reader: Don't try to think to hard about this parallelism magic... It hurts.
+        # Tip for the reader: Don't try to think to hard about this parallelism magic... It hurts
 
         # Widget callbacks
         self.find_but.clicked.connect(toggler(self.find_window))
         self.data_window.being_modified.connect(self.options.setDisabled)
         self.data_window.being_modified.connect(self.find_window.setDisabled)
 
-        # Synchronizing main dataset with secondary dataset
+        """
+        This needs a bit of explanation.
+
+        So, because in python lists are synchronized (you can check this manually with an
+        `iter` calling `next` after some `pop`), that implies that the model.__hidden will
+        always raise `StopIteration` and not some other exception (which will be caught by the `for`).
+
+        Now, it is possible that model.__hidden is changing at the same time that `updateShowing`
+        is running because data_window called `add` or `remove`, which changes the training dataset
+        because of the way JoinedList's `append` and `remove` work.
+
+        That means that some paper that is currently being removed in `data_window.remove` will be shown
+        because of `updateShowing`. Luckily, we know that if `data_window.remove` is called, after the
+        removal process is done, training[0] will emit. That implies that the papers shown will also update.
+
+        Therefore, this will always, theoretically, be valid, because of the way the GIL and lists work in python.
+        """
         self.data_window.training[0].connect(lambda : _addQueue(self.display.model.updateShowing))
 
         # Finding window callbacks
         self.find_window.find_signal.connect(
-            lambda : Process(
-                target=_addQueue,
-                args=(lambda : self.display.find(**self.find_window.sendReport()),)
-            ).run()
+            lambda : _addQueue(lambda : self.display.find(**self.find_window.sendReport()))
         )
         self.find_window.remove_signal.connect(
-            lambda : Process(
+            lambda : Thread(  # Thread necessary to prevent lock of ui
                 target=self.data_window.accessPapers,
                 args=(lambda papers: papers.model.remove(self.display.found(**self.find_window.sendReport())),)
-            ).run()
+            ).start()
         )
 
         # Mutually exclusive parameter manipulation
         self.options.querying.connect(self.params_window.setDisabled)
         self.params_window.writing.connect(self.options.setDisabled)
 
-        # Temporary function definitions since lambdas cannot create objects
-        # In that case, the path can become a volatile variable when
-        # A query is started whilst the remove/adding process isn't finished
-        def _remove(ignored) -> None:
+        # Temporary function using the directory as a variable
+        def _add() -> None:
             saved: Path = self.options.directory.absolute()
-            Process(target=(lambda : self.data_window.remove(saved))).run()
+            self.data_window.add("Validation", osp.join(saved, First.FILES[0]))   # Validation for the last training step
+            self.data_window.add("Training", osp.join(saved, First.FILES[2]))  # Training for the AI
+            # Note that, like the comment said in the `query` function, this will try to add
+            # Papers that were already added, but since the add function runs in O(n**2) and
+            # This adds the most papers, the cost of putting this function earlier would be greater than leaving it on this line
+            self.data_window.add("", osp.join(saved, First.FILES[1]))  # All other citations
 
-        def _add(ignored) -> None:
-            saved: Path = self.options.directory.absolute()
-            # Inner definition for the process to hook on
-            def _inner() -> None:
-                self.data_window.add("Validation", saved + First.FILES[0])   # Validation for the last training step
-                self.data_window.add("Training", saved + First.FILES[2])  # Training for the AI
-                # Note that, like the comment said in the `query` function, this will try to add
-                # Papers that were already added, but since the add function runs in O(n**2) and
-                # This adds the most papers, the cost of putting this function earlier would be greater than leaving it here
-                self.data_window.add("Default case. Hello :)", saved + First.FILES[1])  # All other citations
-            Process(_inner).run()
-
-        # Querying callbacks
-        self.options.remove_signal.connect(_remove)
-        self.options.add_signal.connect(_add)
+        # Callbacks for adding and removing the queries
+        # Note that since the connection type is Direct, that implies that another thread will call this,
+        # Making it useless to create another Thread
+        self.options.remove_signal.connect(
+            lambda : self.data_window.remove(self.options.directory.absolute()),
+            type=Qt.ConnectionType.DirectConnection
+        )
+        # Note that since the connection type is Direct, that implies that another thread will call this,
+        # Making it useless to create another Thread
+        self.options.add_signal.connect(_add, type=Qt.ConnectionType.DirectConnection)
 
     # Function that dismounds the first step of the procedure
     def dismountFirst(self: Self) -> None:
         # Exceptions if the inputs were invalid
-        if not self.data_window.dataset[1]: raise Exception("The main dataset was empty.")
+        if not self.data_window.dataset[1]:  raise Exception("The main dataset was empty.")
         if not self.data_window.training[1]: raise Exception("The training dataset was empty.")
 
         unlabeled: bool = False
@@ -295,26 +311,29 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
             box.accepted.connect(_boxAccepted)
             box.exec()
 
+            # This could be changed
             if response: raise Exception("Couldn't dismount.")
 
         del unlabeled
 
         # Removing the callbacks
-        self.data_window.being_modified.disconnect(self.options.setDisabled)
         self.data_window.being_modified.disconnect(self.find_window.setDisabled)
+        self.data_window.being_modified.disconnect(self.options.setDisabled)
         self.options.querying.disconnect(self.params_window.setDisabled)
         self.params_window.writing.disconnect(self.options.setDisabled)
 
         # Removing the button for the find window
-        self.other_but.layout().removeWidget(self.find_but)
-        self.body.layout().removeWidget(self.display)
-        self.bottom.layout().removeWidget(self.options)
+        # Credit goes to @Neuron for https://stackoverflow.com/questions/5899826/pyqt-how-to-remove-a-widget
+        self.find_but.setParent(None)
+        self.display.setParent(None)
+        self.options.setParent(None)
 
         # Deleting the widgets associated with the finding window
         del self.find_window, self.find_but, self.options, self.display
 
     # Function that mounts the second step
     def mountSecond(self: Self) -> None:
+        global GLO_DEL
         # Deactivating all possibilities of modifying the data
         self.data_window.setDisabled(True)
 
@@ -331,21 +350,27 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         # Styling for the display
         self.display.setStyleSheet(MainWindow.DEFAULT_STYLE)
 
-        lock = Lock()
-        def _plotSignal(ignored) -> None:
-            lock.acquire()
-            try: self.display.setAttributes(**self.options.sendReport())
+        def _plotSignal() -> None:
+            try:
+                self.display.setAttributes(**self.options.sendReport())
+                self.display.plotf()
             except:
-                lock.release()
-                return
+                GLO_DEL.call(
+                    lambda _self: errorFactory(
+                        "Could not plot",
+                        "Error in the plotting. Hint: Check whether the input boxes are not empty.",
+                        _self
+                    ).show(),
+                    _self=self
+                )
 
-            self.display.plot()
-            lock.release()
-            self.options.setDisabled(False)
+        # Disabling callbacks
+        self.display.modifying.connect(self.next.setDisabled)
+        self.display.modifying.connect(self.options.setDisabled)
 
-        # No need to disable the next button since it is independant of the overlaying logic.
-        self.options.plot_signal.connect(lambda ignored: (self.options.setDisabled(True), Process(target=_plotSignal).run()))
-        self.options.clear.connect(lambda ignored: (lock.acquire(), self.display.clear(), lock.release()))
+        # Plotting callbacks
+        self.options.plot_signal.connect(lambda ignored: Thread(target=_plotSignal).start())
+        self.options.clear.connect(self.display.clear)
 
     """
     Note that the second window will not be dismounted since the rest of the
@@ -377,28 +402,61 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         load.show()
 
         def _target() -> None:
-            self.next.setDisabled(True)
             load.getStems()
             load.close()
 
-            stem: Stem = Stem(load.grams, self)
-            stem.show()
+            def do() -> None:
+                nonlocal load, self
+                stem: Stem = Stem(load.grams, self)
 
-            # Could not include this in lambda, because of the exception
-            def _throwing(ignored) -> Never:
-                raise Exception("Cannot put this in lambda")
+                # Could not include this in lambda, because of the exception
+                def _throwing() -> Never: raise Exception("Stems were rejected")
+                def _accepted() -> None:
+                    self.grams_found = load.grams_found
+                    self.grams       = load.grams
 
-            def _accepted() -> None:
-                self.grams_found = load.grams_found
-                self.grams       = load.grams
+                stem.rejected.connect(_throwing)
+                stem.accepted.connect(_accepted)
 
-            stem.rejected.connect(_throwing)
-            stem.accepted.connect(_accepted)
+                self.next.setDisabled(False)
+                stem.show()
 
-            self.next.setDisabled(False)
-            stem.show()
+            GLO_DEL.call(do)
 
-        Process(target=_target).run()
+        self.next.setDisabled(True)
+        Thread(target=_target).start()
+
+    # Forth and final step of the mounting
+    def mountForth(self: Self) -> None:
+        self.options.setParent(None)
+        del self.options
+
+        self.options = Third()
+        self.bottom.insertWidget(0, self.options)
+        self.options.setParent(self.bottom)
+
+        def _predict() -> None:
+            mb: QMessageBox = waitFactory(
+                "Wainting window",
+                "Waiting for predictions",
+                (1000/3),  # A third of a second
+                parent=self
+            )
+            self.setDisabled(True)
+
+            def threadcall() -> None:
+                global GLO_DEL, app
+                try:
+                    self.predictions(**self.options.sendReport())
+                    mb.close()
+                    app.exit(0)
+                except:
+                    mb.close()
+                    GLO_DEL.call(lambda _self: _self.setDisabled(False), _self=self)
+
+            Thread(target=threadcall).start()
+
+        self.next.pressed.connect(_predict)
 
     """
     Function used to make predictions on a specific paper.
@@ -416,13 +474,14 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                      model:    int,    # 0 is linear regression, 1 is decision tree
                      sampling: int     # 0 is oversampling, 1 is undersampling.
                    ) -> None:
+        global GLO_DEL
         """
         --------------------------------------------------
                         Separating datasets
         --------------------------------------------------
         """
         # For not getting them each time in the loop
-        # FIXME : If you need to modify the type, remember that `List` is contravariant,
+        # FIXME : If you need to modify the type, remember that `List` is invariant,
         # So this may not work anymore. Also, this may be premature optimization, but meh.
         dataset_list:    list[Paper] = self.data_window.dataset[1]
         training_list:   list[Paper] = self.data_window.training[1]
@@ -559,167 +618,193 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         confused_train: np.ndarray = confusion_matrix(results_train, results_train_pred)
         confused_test:  np.ndarray = confusion_matrix(results_test, results_test_pred)
 
-        trained_win: QDialog = Statistics(
-            an=confused_train[0,0],
-            fn=confused_train[1, 0],
-            ap=confused_train[1, 1],
-            fp=confused_train[0, 1],
-            acc=_shortcutTrain(accuracy_score),
-            rec=_shortcutTrain(recall_score),
-            pre=_shortcutTrain(precision_score),
-            f1=_shortcutTrain(f1_score)
-        )
-
-        trained_win.setWindowTitle("Training Window")
-
-        test_win: QDialog = Statistics(
-            an=confused_test[0,0],
-            fn=confused_test[1, 0],
-            ap=confused_test[1, 1],
-            fp=confused_test[0, 1],
-            acc=_shortcutTest(accuracy_score),
-            rec=_shortcutTest(recall_score),
-            pre=_shortcutTest(precision_score),
-            f1=_shortcutTest(f1_score)
-        )
-
-        test_win.setWindowTitle("Testing Window")
-
-        crossval_win: Statistics | None = None
-        if splits > len(data_train):
-            errorFactory(
-                "Couldn't split",
-                "The cross-validation could not be performed due to a lack of training data"
-            ).show()
-            crossval_win = Statistics()
-        else:
-            def _shortcutCross(string: str) -> float:
-                return round(np.mean(ms.cross_val_score(model, data_train, results_train, scoring=string, cv=splits)) * 100, 2)
-
-            crossval_win = Statistics(
-                f1=_shortcutCross("f1"),
-                acc=_shortcutCross(""),
-                pre=_shortcutCross("precision"),
-                rec=_shortcutCross("recall")
+        # Callback since this is UI manipulation
+        def _uiCall[**P](*args: P.args, **kwargs: P.kwargs) -> None:
+            nonlocal self
+            trained_win: Statistics = Statistics(
+                an=confused_train[0,0],
+                fn=confused_train[1, 0],
+                ap=confused_train[1, 1],
+                fp=confused_train[0, 1],
+                acc=_shortcutTrain(accuracy_score),
+                rec=_shortcutTrain(recall_score),
+                pre=_shortcutTrain(precision_score),
+                f1=_shortcutTrain(f1_score)
             )
+            trained_win.setWindowTitle("Training Window")
 
-        crossval_win.setWindowTitle("Cross Validation Window")
+            test_win: Statistics = Statistics(
+                an=confused_test[0,0],
+                fn=confused_test[1, 0],
+                ap=confused_test[1, 1],
+                fp=confused_test[0, 1],
+                acc=_shortcutTest(accuracy_score),
+                rec=_shortcutTest(recall_score),
+                pre=_shortcutTest(precision_score),
+                f1=_shortcutTest(f1_score)
+            )
+            test_win.setWindowTitle("Testing Window")
 
-        lock = Lock()
-        def _closing(accepted: bool) -> None:
-            lock.acquire(timeout=0)
-            crossval_win.close()
-            trained_win.close()
-            test_win.close()
+            crossval_win: Statistics | None = None
+            if splits > len(data_train):
+                errorFactory(
+                    "Couldn't split",
+                    "The cross-validation could not be performed due to a lack of training data"
+                ).show()
+                crossval_win = Statistics()
+            else:
+                def _shortcutCross(string: str) -> float:
+                    return round(np.mean(ms.cross_val_score(model, data_train, results_train, scoring=string, cv=splits)) * 100, 2)
 
-            if not accepted: raise Exception("Didn't accept")
+                crossval_win = Statistics(
+                    f1=_shortcutCross("f1"),
+                    acc=_shortcutCross(""),
+                    pre=_shortcutCross("precision"),
+                    rec=_shortcutCross("recall")
+                )
+            crossval_win.setWindowTitle("Cross Validation Window")
 
-            params: dict[str, str] = appendParams()
+            lock = Lock()
+            def _closing(accepted: bool) -> None:
+                nonlocal lock
+                global GLO_DEL
+                lock.acquire(timeout=0)
+                GLO_DEL.call(
+                    lambda crossval_win, trained_win, test_win: (
+                        crossval_win.close(),
+                        trained_win.close(),
+                        test_win.close()
+                    ),
+                    trained_win=trained_win,
+                    test_win=test_win,
+                    crossval_win=crossval_win
+                )
 
-            pred: np.ndarray = model.predict_proba(self.grams_found)
-            for count in range(len(pred)): dataset_list[count][1].assign(pred[count])
-            del pred
+                if not accepted: raise Exception("Didn't accept")
 
-            # Shortcut
-            moved: Callable[..., Any]  = sorted
-            sorted = lambda dataset : moved(dataset, key=lambda paper : paper.prob)
+                params: dict[str, str] = appendParams()
 
-            sorted(dataset_list, key=lambda paper: paper.prob)
-            sorted(validation_list, key=lambda paper: paper.prob)
-            sorted(training_list, key=lambda paper: paper.prob)
+                pred: np.ndarray = model.predict_proba(self.grams_found)
+                for count in range(len(pred)): dataset_list[count][1].assign(pred[count])
+                del pred
 
-            sorted = moved
-            del moved
+                # Shortcut
+                moved: Callable[..., Any]  = sorted
+                sorted = lambda dataset : moved(dataset, key=lambda paper : paper.prob)
 
-            base: float = params["thr"]
-            grow: float = params["step"]
+                sorted(validation_list)
+                sorted(training_list)
+                sorted(dataset_list)
 
-            final_validation: Final[float] | None = None
-            final_training:   Final[float] | None = None
+                sorted = moved
+                del moved
 
-            # Shortcut used to exit the loop with the defined threshold
-            # Needed because of the weird Python scopes and lambdas
-            def _outsideTraining(threshold: float) -> Never:
-                nonlocal final_training
-                final_training = threshold
-                raise Exception("Exited")
+                base: float = params["thr"]
+                grow: float = params["step"]
 
-            def _outsideValidation(threshold: float) -> Never:
-                nonlocal final_validation
-                final_validation = threshold
-                raise Exception("Exited")
+                final_validation: Final[float] | None = None
+                final_training:   Final[float] | None = None
 
-            def _show(li: list[Paper], func: Callable[[float], Never]) -> None:
-                prob: Final[list[float]] = map(lambda paper: paper.prob, li)
-                second: float = base + grow
-                first:  float = base
+                # Shortcut used to exit the loop with the defined threshold
+                # Needed because of the weird Python scopes and lambdas
+                def _outsideTraining(threshold: float) -> Never:
+                    nonlocal final_training
+                    final_training = threshold
+                    raise Exception("Exited")
 
-                index_first:  int = 0
-                index_second: int = 0
+                def _outsideValidation(threshold: float) -> Never:
+                    nonlocal final_validation
+                    final_validation = threshold
+                    raise Exception("Exited")
 
-                le: int = len(li)
+                def _show(li: list[Paper], func: Callable[[float], Never]) -> None:
+                    global GLO_DEL
+                    prob: Final[list[float]] = map(lambda paper: paper.prob, li)
+                    second: float = base + grow
+                    first:  float = base
 
-                try:
+                    index_first:  int = 0
+                    index_second: int = 0
+
+                    proceed: bool = True
+                    le:       int = len(li)
                     # index_second is used, since this while loop is actually a do while (which python doesn't have)
                     while index_second < le:
-                        index_first  = cutoff(prob, first) + 1
+                        index_first  = index_second
                         index_second = cutoff(prob, second) + 1
 
-                        window: QDialog = Interval(li[index_first:index_second], first, second)
+                        def _showInterval() -> None:
+                            nonlocal first, second, index_first, index_second, li, first, func
+                            window: QDialog = Interval(li[index_first:index_second], first, second)
+                            window.accepted.connect(lambda : func(first))
+                            window.exec()
 
-                        window.accepted.connect(lambda ignored : func(first))
-                        window.exec()
+                        def _handler(thrown: bool) -> None:
+                            nonlocal proceed
+                            proceed = thrown
+
+                        GLO_DEL.wait(_showInterval, final=_handler)
+
+                        if not proceed: break
 
                         second += grow
                         first  += grow
-                except: pass
+                    else: raise Exception("Index is outside of paper probability bonds")
 
-            _show(training_list, _outsideTraining)
-            _show(validation_list, _outsideValidation)
+                _show(training_list, _outsideTraining)
+                _show(validation_list, _outsideValidation)
 
-            if final_validation != final_training:
-                mbFactory(
-                    "Different cutoff",
-                    "The cutoff for the validation is different from the training",
-                    QMessageBox.Icon.Warning,
-                    QMessageBox.StandardButton.Ok,
-                    self
-                ).show()
+                if final_validation != final_training:
+                    GLO_DEL.call(
+                        lambda _self: mbFactory(
+                            "Different cutoff",
+                            "The cutoff for the validation is different from the training",
+                            QMessageBox.Icon.Warning,
+                            QMessageBox.StandardButton.Ok,
+                            _self
+                        ).show(),
+                        _self=self
+                    )
 
-            final: Final[int] = min(final_validation, final_training)
-            del _outsideTraining, _outsideValidation
+                final: Final[int] = min(final_validation, final_training)
+                del _outsideTraining, _outsideValidation
 
-            cutoff_index: int = cutoff(map(lambda paper : paper.prob, dataset_list), final) + 1
+                cutoff_index: int = cutoff(map(lambda paper : paper.prob, dataset_list), final)
 
-            mkabsent(MainWindow.DEFAULT_DIR)
-            file: str = MainWindow.DEFAULT_DIR + "papers.txt"
-            with open(file, "w") as writable:
-                moving: Callable[..., Any] = dataset_list.__next__
-                def _write() -> str:
-                    paper = moving()[1]
-                    return paper.title + " " + str(paper.date) + " " + paper.jour + " " + str(paper.prob)
-                dataset_list.__next__ = _write
-                writable.writelines(dataset_list[cutoff_index:])
+                mkabsent(MainWindow.DEFAULT_DIR)
+                file: str = osp.join(MainWindow.DEFAULT_DIR, "papers.txt")
+                with open(file, mode="w", encoding="utf8") as writable:
+                    def _write(paper: tuple[tuple[SignalInstance, list] | None, Paper]) -> str:
+                        real: Paper = paper[1]
+                        return real.title + " " + str(real.date) + " " + str(real.jour) + " " + str(real.prob)
 
-            mbFactory(
-                "Values printed",
-                "The final values were printed at " + file,
-                QMessageBox.StandardButton.Ok,
-                QMessageBox.Icon.Information,
-                self
-            ).exec()
+                    writable.writelines(map(_write, dataset_list[cutoff_index:]))
 
-            # Programs ends here
-            lock.release()
-            self.close()
+                GLO_DEL.wait(
+                    lambda file, _self: mbFactory(
+                        "Values printed",
+                        "The final values were printed at " + file,
+                        QMessageBox.StandardButton.Ok,
+                        QMessageBox.Icon.Information,
+                        _self
+                    ).exec(),
+                    file=file,
+                    _self=self
+                )
 
-        crossval_win.connect(_closing)
-        trained_win.connect(_closing)
-        test_win.connect(_closing)
+                # Programs ends here after going back to `mountForth`
+                lock.release()
 
-        crossval_win.show()
-        trained_win.show()
-        test_win.show()
+            call: Callable[[None], None] = lambda accept: Thread(target=_closing, args=accept).start()
 
+            crossval_win.result.connect(call)
+            trained_win.result.connect(call)
+            test_win.result.connect(call)
+
+            crossval_win.show()
+            trained_win.show()
+            test_win.show()
+
+        GLO_DEL.call(_uiCall, kwargs=locals())
 main: QMainWindow = MainWindow()
 sys.exit(app.exec())
