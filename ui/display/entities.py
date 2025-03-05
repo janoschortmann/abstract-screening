@@ -7,7 +7,7 @@ This include, for example, the table from the first step (or from the data butto
 which shows each paper. Another example would be the Operating Characteristic Curve.
 
 @author  Thomas Gauthier
-@version 0.3
+@version 0.4
 """
 from multiprocessing      import Array, Lock, RLock, Pool
 from pyqtgraph            import PlotWidget, mkPen, QtGui
@@ -43,7 +43,7 @@ align_flags = Qt.AlignmentFlag
 Basic class that represent the skeleton of all model table model used.
 
 @author  Thomas Gauthier
-@version 0.2
+@version 0.3
 """
 class PaperTableModel(QAbstractTableModel):
     # Default initializer that assigns the data received and the columns shown
@@ -62,17 +62,17 @@ class PaperTableModel(QAbstractTableModel):
         if len(headers) != len(columns):
             raise Exception("List of different sizes")
 
-        self.__columns: Final[list[str]] = columns.copy()
-        self.__headers: Final[list[str]] = headers.copy()
-        self.__data: list[Paper] = data if data is not None else []
+        self._columns: Final[list[str]] = columns.copy()
+        self._headers: Final[list[str]] = headers.copy()
+        self._data:    list[Paper] = data if data is not None else []
 
     @override
     def rowCount(self: Self, index: QModelIndex) -> int:
-        return len(self.__data)
+        return len(self._data)
 
     @override
     def columnCount(self: Self, index: QModelIndex) -> int:
-        return len(self.__columns)
+        return len(self._columns)
 
     # All data will be aligned in the center
     @override
@@ -81,7 +81,7 @@ class PaperTableModel(QAbstractTableModel):
             return align_flags.AlignCenter
 
         if role == data_role.DisplayRole and orientation == Qt.Orientation.Horizontal:
-            return self.__headers[index]
+            return self._headers[index]
 
         return None
 
@@ -93,7 +93,8 @@ class PaperTableModel(QAbstractTableModel):
 
         if role == data_role.DisplayRole:
             # Introspection moment
-            return str(vars(self.__data[index.column()])[self.__columns[index.row()]])
+            string: str = str(vars(self._data[index.row()])[self._columns[index.column()]])
+            return string if string else "N/A"
 
 """
 Default class implementing the PaperTableModel.
@@ -125,7 +126,7 @@ class PaperTableView(QWidget):
 Implements the PaperTableModel with barebone data manipulation.
 
 @author  Thomas Gauthier
-@version 0.1
+@version 0.2
 """
 class MutableTableModel(PaperTableModel):
     # Default initializer
@@ -143,7 +144,7 @@ class MutableTableModel(PaperTableModel):
     # Note that this could also be done outside this method since the data
     # Is passed by reference. This also accepts doubles of papers
     def append(self: Self, data: list) -> None:
-        self.__data.append(data)
+        self._data.append(data)
         self.layoutChanged.emit()
 
     # Removes the targets and sends back the failures
@@ -151,7 +152,7 @@ class MutableTableModel(PaperTableModel):
         failures: list = []
 
         for element in removal:
-            try: self.__data.remove(element)
+            try: self._data.remove(element)
             except: failures.append(element)
 
         self.layoutChanged.emit()
@@ -159,7 +160,7 @@ class MutableTableModel(PaperTableModel):
 
     # Clearing
     def clear(self: Self) -> None:
-        self.__data.clear()
+        self._data.clear()
         self.layoutChanged.emit()
 
 """
@@ -172,26 +173,31 @@ anyone that uses this must not manipulate the data outside this class.
 More information is found in the initializer of PaperTableModel.
 
 @author  Thomas Gauthier
-@version 0.2
+@version 0.3
 """
 class FindingModel(PaperTableModel):
+    # Note that this variable is disjoint of the dataChanged variable.
+    # Even though hidden_changed should be connected to the dataChanged, because
+    # Of the updateShowing method, here, we save a lot of computer cycles
+    # If we do not connect this signal to the other. That implies that dataChanged must
+    # Be manually emitted once this is.
     hidden_changed: Signal = Signal()
 
     # Default initializer
     def __init__(
-                  self: Self,
-                  data: list[Paper] | None,
+                  self:    Self,
+                  data:    list[Paper] | None,
                   columns: list[str] | tuple[str],
                   headers: list[str] | tuple[str],
-                  parent:    QWidget | None = None
+                  parent:  QWidget | None = None
                 ) -> None:
         # Additional variables
-        self.__lock: Any = Lock()
-        self.__hidden: list[Paper] = data
-        self.__criterias: list[Callable[..., bool]] = []
+        self.__lock:      Any = Lock()
+        self._hidden:    list[Paper] = data
+        self._criterias: list[Callable[..., bool]] = []
 
         # Hidden  copied since it represents the data shown
-        super().__init__(self.__hidden.copy(), columns, headers, parent)
+        super().__init__(self._hidden.copy(), columns, headers, parent)
 
     # Updates the view
     @staticmethod
@@ -200,7 +206,7 @@ class FindingModel(PaperTableModel):
         def inner(*args: P.args, **kwargs: P.kwargs) -> R:
             self = args[0]
             self.__lock.acquire()
-            argument: R = func(args, kwargs)
+            argument: R = func(*args, **kwargs)
             self.updateShowing()
             self.__lock.release()
             return argument
@@ -211,7 +217,7 @@ class FindingModel(PaperTableModel):
     def mutated[R, **P](FindingModel, func: Callable[P, R]) -> Callable[P, R]:
         def inner(*args: P.args, **kwargs: P.kwargs) -> R:
             self = args[0]
-            var: R = func(args, kwargs)
+            var: R = func(*args, **kwargs)
             self.hidden_changed.emit()
             return var
         return FindingModel.updates(inner)
@@ -219,85 +225,77 @@ class FindingModel(PaperTableModel):
     # Will update the showing data. Used when the real data has changed
     @Slot()
     def updateShowing(self: Self) -> None:
-        self.__data = self.getRespecting()
+        self._data = self.getRespecting()
         self.layoutChanged.emit()
 
     # Method used to return the papers that are respecting the criterias
     def getRespecting(self: Self) -> list:
         respecting: list[Paper] = []
 
-        for paper in self.__hidden:
+        for paper in self._hidden:
             # Could be boxed in another function, depending on future requirements
             respects_all: bool = True
-            for criteria in self.__criterias:
+            for criteria in self._criterias:
                 if not criteria(paper):
                     respects_all = False
                     break
-
             if respects_all: respecting.append(paper)
 
         return respecting
 
     # Function that will add the criterias for the view
     def addCriterias(self: Self, criterias: Iterable[Callable[..., bool]]) -> None:
-        self.__criterias.extend(criterias)
+        self._criterias.extend(criterias)
 
-    def removeCriterias(self: Self, criteria: dict[int, Callable[..., bool]] | list[Callable[..., bool]]) -> list[int] | None:
+    def removeCriterias(self: Self, criterias: dict[int, Callable[..., bool]] | list[Callable[..., bool]]) -> list[int] | None:
         keys: Iterable[int] = []
 
-        if isinstance(criteria, list): keys = map(id, criteria)
-        else: keys = criteria.keys()
+        if isinstance(criterias, list): keys = map(id, criterias)
+        else: keys = criterias.keys()
 
         failures: list[int] = []
         for key in keys:
-            try: self.__criterias.pop(key)
+            try: self._criterias.pop(key)
             except: failures.append(key)
 
         return failures or None
 
     def clearCriterias(self: Self) -> None:
-        self.__criterias.clear()
+        self._criterias.clear()
 
     # Appends new data and shows it if it respects the current criterias
     # Note that this could also be done outside this method since the data
     # Is passed by reference. This also accepts doubles
     def append(self: Self, data: list[Paper]) -> None:
-        self.__hidden.extend(data)
+        self._hidden.extend(data)
 
     # Removes the elements that are the same as in the removal list
     def remove(self: Self, removal: list[Paper]) -> list | None:
         failures: list = []
 
         for element in removal:
-            try: self.__hidden.remove(element)
+            try: self._hidden.remove(element)
             except: failures.append(element)
 
         return failures or None
 
     # Clear alls the data
     def clear(self: Self) -> None:
-        self.__hidden.clear()
+        self._hidden.clear()
 
-# Manually decorating methods
-for method in (
-    FindingModel.clear,
-    FindingModel.remove,
-    FindingModel.append,
-):
-    method = FindingModel.mutated(method)
+FindingModel.clear  = FindingModel.mutated(FindingModel.clear)
+FindingModel.remove = FindingModel.mutated(FindingModel.remove)
+FindingModel.append = FindingModel.mutated(FindingModel.append)
 
-for method in (
-    FindingModel.clearCriterias,
-    FindingModel.addCriterias,
-    FindingModel.removeCriterias
-):
-    method = FindingModel.updates(method)
+FindingModel.addCriterias    = FindingModel.updates(FindingModel.addCriterias)
+FindingModel.clearCriterias  = FindingModel.updates(FindingModel.clearCriterias)
+FindingModel.removeCriterias = FindingModel.updates(FindingModel.removeCriterias)
 
 """
 Implements the PaperTableModel with barebone unique data manipulation.
 
 @author  Thomas Gauthier
-@version 0.1
+@version 0.2
 """
 class UniqueTableModel(MutableTableModel):
     # Default initializer
@@ -312,8 +310,8 @@ class UniqueTableModel(MutableTableModel):
     # Appends the new data and removes doubles
     @override
     def append(self: Self, data: list) -> None:
-        self.__data.append(data)
-        unique(self.__data)
+        self._data.append(data)
+        unique(self._data)
         self.layoutChanged.emit()
 
 """
@@ -325,7 +323,7 @@ This is used for example on step one and on the data label.
 When an element is clicked, it will cycle through the possible labels.
 
 @author  Thomas Gauthier
-@version 0.2
+@version 0.3
 """
 @final
 class SelectionModel(FindingModel):
@@ -333,9 +331,9 @@ class SelectionModel(FindingModel):
     columns: Final[list[str]] = ["title", "date", "jour", "doi", "label"]
     headers: Final[list[str]] = ["Title", "Date", "Journal", "DOI", "Label"]
     dict_images: Final[dict[int, QtGui.QIcon]] = {
-        0: QtGui.QIcon(":/resources/grey_bar.png"),
-        1: QtGui.QIcon(":/resources/green_checkbar.png"),
-        2: QtGui.QIcon(":/resources/delete.png")
+        "Unlabeled": QtGui.QIcon(":/resources/grey_bar.png"),
+        "Accepted":  QtGui.QIcon(":/resources/green_checkmark.png"),
+        "Rejected":  QtGui.QIcon(":/resources/delete.png")
     }
 
     # Basic constructor that receives a list of the elements containing papers.
@@ -343,31 +341,36 @@ class SelectionModel(FindingModel):
         super().__init__(data, SelectionModel.columns, SelectionModel.headers, parent)
 
     # Return the flags for an item in the table
-    def flags(self: Self) -> item_flags:
+    def flags(self: Self, index: Any) -> item_flags:
         return item_flags.ItemIsEditable
 
     # Basic function used to return layout information
     @override
     def data(self: Self, index: QModelIndex, role: QModelRoleData) -> Any:
-        if index.column() != self.__columns.index("label"):
-            return super().data(self, index, role)
-
-        if role == data_role.DecorationRole:
-            return SelectionModel.dict_images[self.__data[index.row()].label]
+        if index.column() != self._columns.index("label"):
+            return super().data(index, role)
+        elif role == data_role.DecorationRole:
+            return SelectionModel.dict_images[self._data[index.row()].label]
+        elif role == data_role.DisplayRole:
+            return self._data[index.row()].label
 
         return None
 
     # Default behaviour for clicking on an item
     def clicked(self: Self, index: QModelIndex) -> None:
-        selected: Paper = self.__viewing[index.row()]
-        selected.index = (selected.index + 1) % len(SelectionModel.dict_images)
-        self.layoutChanged.emit()
+        selected: Paper    = self._data[index.row()]
+        selected.label     = Paper.LABELS[(Paper.LABELS.index(selected.label) + 1) % len(SelectionModel.dict_images)]
+        field: QModelIndex = self.createIndex(index.row(), len(self._headers) - 1)
+        self.dataChanged.emit(field, field, [])
 
     # Default behaviour for double clicking on an item
     def doubleClicked(self: Self, index: QModelIndex) -> None:
         from ui.windows import PaperView
-        paper_view: PaperView = PaperView(self.__viewing[index.row()])
-        paper_view.changed.connect(self.layoutChanged.emit)
+        paper_view: PaperView = PaperView(self._data[index.row()])
+        def _connection() -> None:
+            nonlocal index, self
+            self.dataChanged.emit(index, index, [])
+        paper_view.changed.connect(_connection)
         paper_view.show()
 
 """
@@ -375,83 +378,74 @@ Basic view for selecting papers that reimplement the clicked and
 double clicked callbacks.
 
 @author  Thomas Gauthier
-@version 0.1
+@version 0.2
 """
 class SelectionView(QTableView):
     # Basic Constructor. Only calls the super constructor
-    def __init__(self: Self, parent: QWidget | None = None) -> None:
+    def __init__(self: Self, data: list, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self.__model = SelectionModel(data)
+        self.setModel(self.__model)
 
-    # Overrides it with the one from the model
-    @override
-    def clicked(self: Self, index: QModelIndex) -> None:
-        self.model.clicked(index)
-
-    # Overrides it with the one from the model
-    @override
-    def doubleClicked(self: Self, index: QModelIndex) -> None:
-        self.model.doubleClicked(index)
+        self.clicked.connect(self.__model.clicked)
+        self.doubleClicked.connect(self.__model.doubleClicked)
 
 """
 Basic implementation of the FindingModel as a TableView.
 
 @author  Thomas Gauthier
-@version 0.3
+@version 0.4
 """
 class FindingView(QWidget):
     """
-    The basic constructor for a FindingView. It receives a model that inherits from the finding view
-    and a view that inherits from QTableView so that multiple TableViews can have a "find" functionality.
+    The basic constructor for a FindingView. It receives a view that inherits from QTableView
+    so that multiple TableViews can have a "find" functionality.
 
-    Note that if the model and/or the view is not provided, this will automatically assume that they
-    are standard QTableView and FindingModel (respectively).
+    Note that the view must already have a model set internally.
 
     Please be sure to pass an instance of the view and an instance of the model as rvalues, since,
     by keeping an exterior reference, this may lead to bugs.
     """
-    def __init__[**P](
+    def __init__(
                   self:   Self,
-                  model:  FindingModel,
                   view:   QTableView,
                   parent: QWidget | None = None,
                 ) -> None:
         # Default initialization
         super().__init__(parent)
-        view.setModel(model)
 
         # Saving the values for another time
         self.view:    QTableView = view
-        self.model: FindingModel = model
+        # Shortcut instead of always calling self.view.model()
+        self.model: FindingModel = view.model()
 
         # Connecting both layouts together
         layout: QWidget = QVBoxLayout(self)
-        layout.children().append(view)
+        layout.layout().addWidget(view)
         self.setLayout(layout)
 
     # A useful method for getting the criterias based on standard input
     # Note that this method is temporary and is only used to get the lambdas
-    def __getCriterias(
-                        self:    Self,
-                        title:   tuple[str, bool] | None,
-                        journal: tuple[str, bool] | None,
-                        date:    tuple[dt.date, dt.date] | None,
-                        doi:     str | None,
-                        label:   str | None
-                       ) -> list[Callable[..., bool]]:
+    def _getCriterias(
+                       self:    Self,
+                       title:   tuple[bool, str] | None,
+                       journal: tuple[bool, str] | None,
+                       date:    tuple[dt.date, dt.date] | None,
+                       doi:     str | None,
+                       label:   str | None
+                     ) -> list[Callable[..., bool]]:
         # Shortcuts for not typing it out everytime
-        shortcut: Callable[..., re.Pattern] = lambda arg: re.compile(arg[0] if arg[1] else re.escape(arg[0]))
-        trying: Callable[..., Any] = lambda val, func: func if not isinstance(val, None) else None
+        shortcut: Callable[..., re.Pattern] = lambda arg: (re.compile(arg[1] if arg[0] else re.escape(arg[1])))
 
-        every: list[Callable[..., bool] | None] = [
-            trying(journal, (lambda val:   (lambda paper: val.match(paper.journal)))(shortcut(journal))),
-            trying(title,   (lambda val:   (lambda paper: val.match(paper.title)))(shortcut(title))),
-            trying(date,    (lambda paper: (date[0] <= paper.date and paper.date <= date[1]))),
-            trying(doi,     (lambda paper: (paper.doi == doi)))
-        ]
+        every: list[Callable[[Paper], bool] | None] = []
+        if journal is not None: every.append((lambda val: (lambda paper: val.match(paper.journal)))(shortcut(journal)))
+        if title is not None: every.append((lambda val: (lambda paper: val.match(paper.title)))(shortcut(title)))
+        if date is not None: every.append(lambda paper: (date[0] <= paper.date and paper.date <= date[1]))
+        if doi is not None: every.append(lambda paper: (paper.doi == doi))
+
         if label is not None and label == Paper.POSSIBILITIES[0]: every.append(lambda paper: paper.labeled())
-        else: every.append(trying(label, (lambda paper: (paper.label == label))))
+        elif label is not None: every.append(lambda paper: (paper.label == label))
 
-        clearEmpty(every)
         return every
 
     """
@@ -471,7 +465,7 @@ class FindingView(QWidget):
               label:   str | None
             ) -> None:
         if label not in Paper.POSSIBILITIES: raise Exception("Not in possibilities")
-
+        print("called find")
         """
         HACK : Access to private variables.
 
@@ -481,11 +475,11 @@ class FindingView(QWidget):
 
         The lock must be acquired to be thread safe.
         """
-        self.model.__lock.acquire()
-        self.model.__criterias.clear()
-        self.model.__lock.release()
+        self.model._FindingModel__lock.acquire()
+        self.model._criterias.clear()
+        self.model._FindingModel__lock.release()
 
-        self.model.addCriterias(self.__getCriterias(title, journal, date, doi, label))
+        self.model.addCriterias(self._getCriterias(title, journal, date, doi, label))
 
     def found(
                self:    Self,
@@ -504,15 +498,15 @@ class FindingView(QWidget):
 
         The lock must be acquired to be thread safe.
         """
-        self.model.__lock.acquire()
+        self.model._FindingModel__lock.acquire()
 
-        momento: list[Callable[..., Any]] = self.model.__criterias.copy()
-        self.model.__criterias = self.__getCriterias(title, journal, date, doi, label)
+        momento: list[Callable[..., Any]] = self.model._criterias.copy()
+        self.model._criterias = self._getCriterias(title, journal, date, doi, label)
 
         temp: list = self.model.getRespecting()
-        self.model.__criterias = momento
+        self.model._criterias = momento
 
-        self.model.__lock.release()
+        self.model._FindingModel__lock.release()
         return temp
 
     """
@@ -756,13 +750,10 @@ class OperatingCurve(QWidget):
     def probAcceptance(n: int, c: int, p: float) -> float:
         return sum([binom.pmf(k, n, p) for k in range(c + 1)])
 
-for method in (
-    OperatingCurve.setAttributes,
-    OperatingCurve.plotf,
-    OperatingCurve.findNC,
-    OperatingCurve.linearFindNC
-):
-    method = OperatingCurve.modifies(method)
+OperatingCurve.setAttributes = OperatingCurve.modifies(OperatingCurve.setAttributes)
+OperatingCurve.plotf         = OperatingCurve.modifies(OperatingCurve.plotf)
+OperatingCurve.findNC        = OperatingCurve.modifies(OperatingCurve.findNC)
+OperatingCurve.linearFindNC  = OperatingCurve.modifies(OperatingCurve.linearFindNC)
 
 """
 A factory method that will return a QMessageBox
@@ -825,6 +816,6 @@ def waitFactory(
     mb.closeEvent = lambda event: (mapper(event), timer.stop(), timer.deleteLater())
 
     mb.show()
-    timer.start()\
+    timer.start()
 
     return mb

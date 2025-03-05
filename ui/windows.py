@@ -4,7 +4,7 @@ File containing all instances of the windows defined with the xml files.
 It also connects the signals/callbacks of those windows.
 
 @author  Thomas Gauthier
-@version 0.3
+@version 0.4
 """
 from datetime          import datetime
 from pathlib           import Path
@@ -12,6 +12,7 @@ from threading         import Condition, Thread, Lock
 from typing            import *
 from PySide6.QtWidgets import (
                                 QDialog,
+                                QHBoxLayout,
                                 QWidget,
                                 QMessageBox,
                                 QProgressBar,
@@ -60,6 +61,7 @@ import json
 import math
 import random
 import string
+import sys
 
 # Renamming
 import os.path as osp
@@ -463,18 +465,19 @@ class Find(QWidget, find.Ui_mainwindow):
         arguments: dict[str, Any] = {}
 
         # Shortcuts
-        def shortcut[Q](name: str, arg: Q | None) -> None:
+        def _appendTrue[Q](name: str, arg: Q | None, check: Callable[[Q], bool] | None = None) -> None:
             nonlocal arguments
-            if not arg: arguments[name] = arg
+            if check is None or check(arg): arguments[name] = arg
+            else: arguments[name] = None
 
         # Note that these names correspond to the args in the "find" function
         # In the FindingView so that when calling "find" with "send_report",
         # You can assign the parameters directly with **report
-        shortcut("date",    (self.from_date.date().toPython(), self.to_date.date().toPython()))
-        shortcut("journal", (self.journal_regex.isChecked(), self.journal_edit.text()))
-        shortcut("title",   (self.title_regex.isChecked(), self.title_edit.text()))
-        shortcut("label",   self.label_box.currentText())
-        shortcut("doi",     self.doi_edit.text())
+        _appendTrue("journal", (self.journal_regex.isChecked(), self.journal_edit.text()), lambda tu: bool(tu[1]))
+        _appendTrue("title",   (self.title_regex.isChecked(), self.title_edit.text()), lambda tu: bool(tu[1]))
+        _appendTrue("date",    (self.from_date.date().toPython(), self.to_date.date().toPython()))
+        _appendTrue("label",   self.label_box.currentText(), lambda tx: bool(tx))
+        _appendTrue("doi",     self.doi_edit.text(), lambda tx: bool(tx))
 
         return arguments
 
@@ -492,7 +495,7 @@ It also supports multithreading. See method signature and definition
 for a specific method.
 
 @author  Thomas Gauthier
-@version 0.4
+@version 0.5
 """
 @final
 class Data(QWidget, data.Ui_mainwindow):
@@ -506,62 +509,59 @@ class Data(QWidget, data.Ui_mainwindow):
     This is the easiest option since the model from the TableView
     can modify the data without this class being notified.
     """
-    class JoinedList(list):
+    class JoinedList(object):
         def __init__(self: Self) -> None:
             super().__init__()
             self.leasers:  list[tuple[SignalInstance, list] | None] = list()
+            self.papers:   list[Paper] = list()
             self.emitters: set[SignalInstance] = set()
 
-        @override
         def copy(self: Self) -> list:
             clone: Data.JoinedList = []
             for item in range(len(self)): clone.append(self[item])
             return clone
 
-        @override
         def append(self: Self, item: Any) -> None:
             raise Exception("Not implemented")
 
         def append(self: Self, lease: tuple[SignalInstance, list] | None, instance: Paper, /) -> None:
-            super().append(instance)
+            self.papers.append(instance)
             self.leasers.append(lease)
 
             if lease is not None:
                 lease[1].append(instance)
                 self.emitters.add(lease[0])
 
-        @override
         def extend(self: Self, iterable: Iterable[tuple[tuple[SignalInstance, list] | None, Paper]], /) -> None:
             for item in iterable: self.append(*item)
 
-        @override
         def pop(self: Self, index: Any = -1, /) -> tuple[tuple[SignalInstance, list] | None, Paper]:
             val: tuple[SignalInstance, list] | None = self.leasers.pop(index)
-            paper: Paper = super().pop(index)
+            paper: Paper = self.papers.pop(index)
 
-            if val is not None:
-                self.emitters.add(val[0])
-
-            if paper in val[1]:
-                val[1].remove(paper)
+            if val is not None: self.emitters.add(val[0])
+            if paper in val[1]: val[1].remove(paper)
 
             return (val, paper)
 
-        @override
         def insert(self: Self, index: Any,  lease: tuple[SignalInstance, list] | None, obj: Paper, /) -> Never:
-            super().insert(index, obj)
+            self.papers.insert(index, obj)
             self.leasers.insert(index, lease)
 
-            if lease is not None:
-                self.emitters.add(lease[0])
+            if lease is not None: self.emitters.add(lease[0])
+            if obj not in lease[1]: lease[1].append(obj)
 
-            if obj not in lease[1]:
-                lease[1].append(obj)
+        def index(self: Self, value: Paper, /) -> int:
+            for count in range(len(self.papers)):
+                if value == self.papers[count]: return count
+            raise IndexError("Value is not included in the list")
 
-        @override
+        def count(self: Self, value: Paper) -> int:
+            return self.papers.count(value)
+
         def remove(self: Self, value: Paper) -> None:
-            index: int = super().index(value)
-            super().pop(index)
+            index: int = self.papers.index(value)
+            self.papers.pop(index)
 
             obj: tuple[SignalInstance, list] | None = self.leasers.pop(index)
             if obj is not None:
@@ -571,16 +571,18 @@ class Data(QWidget, data.Ui_mainwindow):
         def removeAll(self: Self, other: Paper) -> None:
             for item in other: self.remove(item)
 
-        @override
         def sort(self: Self, *, key: Callable[..., Any], reverse: bool = False) -> Never:
             raise Exception("Not implemented")
 
-        @override
+        def __contains__(self: Self, value: Paper):
+            for paper in self.papers:
+                if paper == value: return True
+            return False
+
         def __iter__(self: Self) -> Iterator[tuple[tuple[SignalInstance, list] | None, Paper]]:
             self.counter: int = 0
             return self
 
-        @override
         def __next__(self: Self) -> tuple[tuple[SignalInstance, list] | None, Paper]:
             if self.counter == len(self):
                 del self.counter
@@ -589,9 +591,14 @@ class Data(QWidget, data.Ui_mainwindow):
             self.counter += 1
             return item
 
-        @override
         def __getitem__(self: Self, index: Any, /) -> tuple[tuple[SignalInstance, list] | None, Paper]:
-            return (self.leasers[index], super().__getitem__(index))
+            return (self.leasers[index], self.papers[index])
+
+        def __setitem__(self: Self, key: SupportsIndex, value: Paper) -> None:
+            raise Exception("Not implemented")
+
+        def __len__(self: Self) -> int:
+            return len(self.papers)
 
         # The rest of the methods will be the same
         def emit(self: Self) -> None:
@@ -599,16 +606,18 @@ class Data(QWidget, data.Ui_mainwindow):
                 if emitter is not None: emitter.emit()
 
         def switch(self: Self, paper: Paper, new: tuple[SignalInstance, list] | None) -> None:
-            index: int = super().index(paper)
+            index: int = self.papers.index(paper)
             temp: tuple[SignalInstance, list] | None = self.leasers[index]
 
             if temp == new: return
             self.leasers[index] = new
 
-            if temp is not None: temp[1].remove(paper)
-            if new is not None: new[1].append(paper)
-
-            self.emitters.update(new[0], temp[0])
+            if temp is not None:
+                self.emitters.add(temp[0])
+                temp[1].remove(paper)
+            if new is not None:
+                self.emitters.add(new[0])
+                new[1].append(self.papers[index])  # To not change the label
 
     being_modified:    Signal = Signal(bool)
     validation_signal: Signal = Signal()
@@ -636,16 +645,22 @@ class Data(QWidget, data.Ui_mainwindow):
         self.training:   tuple[SignalInstance, list] = (self.training_signal,   [])
         self.dataset:    tuple[SignalInstance, Data.JoinedList] = (self.dataset_signal, Data.JoinedList())
 
-        # Widgets
-        self.__papers: FindingView = FindingView(
+        table: QTableView = QTableView()
+        table.setModel(
             FindingModel(
-                self.dataset[1],
+                self.dataset[1].papers,
                 headers=["Title", "Journal", "Date"],
                 columns=["title", "jour", "date"]
-            ),
-            QTableView(),
-            self
+            )
         )
+
+        # Widgets
+        self.__papers: FindingView = FindingView(table, self.papers_view)
+        layout: QHBoxLayout = QHBoxLayout()
+
+        layout.addWidget(self.__papers)
+        self.papers_view.setLayout(layout)
+
         self.specifier.addItems(["Training", "Validation", "None"])
 
         # Connect callbacks in the find window
@@ -702,14 +717,14 @@ class Data(QWidget, data.Ui_mainwindow):
         res: bool = self.__lock.acquire(wait)
         if not res: return res
 
-        self.being_modified.emit(True)
-        function(self.__papers)
-
-        self.dataset[0].emit()
-        self.dataset[1].emit()
-
-        self.being_modified.emit(False)
-        self.__lock.release()
+        try:
+            self.being_modified.emit(True)
+            function(self.__papers)
+        finally:
+            self.dataset[0].emit()
+            self.dataset[1].emit()
+            self.being_modified.emit(False)
+            self.__lock.release()
 
         return res
 
@@ -737,8 +752,8 @@ class Data(QWidget, data.Ui_mainwindow):
     # Default callback for the adder
     def add(self: Self, text: str | None = None,  path: str | None = None) -> None:
         global GLO_DEL
-        text:   str = self.specifier.itemText() if text is None else text
-        _path: Path = Path(self.path.text()     if path is None else path)
+        text:   str = (self.specifier.currentText() if text is None else text)
+        _path: Path = Path((self.path.text() if path is None else path).strip())
 
         # Could also be done with a dictionary
         # But I don't feel like it
@@ -756,6 +771,7 @@ class Data(QWidget, data.Ui_mainwindow):
                 )
             )
         except Exception as ex:
+            print(ex)
             GLO_DEL.call(
                 lambda path, _self: errorFactory(
                     "Error in adding",
@@ -805,14 +821,14 @@ class Data(QWidget, data.Ui_mainwindow):
                     # Must be done manually to find the lines
                     # If this is too long, either change the dataset to a set and not a list or use numpy
                     index: int = -1
-                    try: index = self.dataset[1].index(paper)
-                    except:
+                    try: index = self.dataset[1].index(parsed)
+                    except Exception as ex:
                         self.dataset[1].append(dataset, parsed)
                         continue
 
                     # The if is not necessary in this context, but is better understood and less bug prone
                     if self.dataset[1].leasers[index] != dataset:
-                        self.dataset[1].switch(paper, dataset)
+                        self.dataset[1].switch(parsed, dataset)
         else: raise Exception("Bad file type")  # In the case of a link or othrer file format
 
         return failures
@@ -821,7 +837,7 @@ class Data(QWidget, data.Ui_mainwindow):
     # Will show a QMessageBox based on the removal process
     def remove(self: Self, path: str | None = None) -> None:
         global GLO_DEL
-        _path: Path = Path(self.path.text() if path is None else path)
+        _path: Path = Path((self.path.text() if path is None else path).strip())
 
         failures: list[tuple[Path, str, int]] = []
         try: self.accessPapers(
@@ -834,7 +850,7 @@ class Data(QWidget, data.Ui_mainwindow):
             GLO_DEL.call(
                 lambda ex, path, _self: errorFactory(
                     "Error in removing",
-                    ex.message + " in " + str(path.absolute()),
+                    ex + " in " + str(path.absolute()),
                     _self
                 ).show(),
                 ex=ex,
@@ -936,7 +952,7 @@ stems and will also print out, at the default location,
 a list of the stems in case of a crash.
 
 @author  Thomas Gauthier, Janosch Ortmann
-@version 0.2
+@version 0.3
 """
 @final
 class Loading(QDialog, loading.Ui_mainwindow):
@@ -1040,7 +1056,7 @@ class Loading(QDialog, loading.Ui_mainwindow):
             lambda _self: _self.process.setText("Counting uni grams..."),
             _self=self
         )
-        count:     np.ndarray =  np.asarray(list(Counter(tokens).items()))
+        count: np.ndarray =  np.asarray(list(Counter(tokens).items()))
 
         if count.size == 0: return  # Nothing is worth doing if no single stem
         uni_found: np.ndarray = count[count[:, 1].astype(np.int_) >= self.__min_words]
@@ -1153,12 +1169,12 @@ class First(QWidget, first.Ui_first_option):
             except: pass
             finally:
                 global GLO_DEL
-                def do() -> None:
+                def _do() -> None:
                     nonlocal self
                     self.progress.setParent(None)
-                    del self.progress
+                    self.progress.deleteLater()
                     self.querying.emit(False)
-                GLO_DEL.call(do)
+                GLO_DEL.call(_do)
 
                 self.querying.emit(False)
                 self.__lock.release()
@@ -1187,7 +1203,7 @@ class First(QWidget, first.Ui_first_option):
         global GLO_DEL
         self.querying.emit(True)
 
-        def do() -> None:
+        def _do() -> None:
             nonlocal self
             self.progress = QProgressBar(self.variables)
             self.progress.setSizePolicy(
@@ -1196,7 +1212,7 @@ class First(QWidget, first.Ui_first_option):
             )
             self.variables.layout().addWidget(self.progress)
 
-        GLO_DEL.call(do)
+        GLO_DEL.call(_do)
 
         if not self.__lock.acquire(blocking=False):
             GLO_DEL.call(
@@ -1278,7 +1294,6 @@ class First(QWidget, first.Ui_first_option):
             )
             raise ValueError()
         else: date = matches[0]
-        del matches
 
         params: dict[str, str] = appendParams()
 

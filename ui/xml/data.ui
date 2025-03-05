@@ -113,8 +113,8 @@ margin-right: 5px;</string>
      <property name="orientation">
       <enum>Qt::Orientation::Vertical</enum>
      </property>
-     <widget class="QTableView" name="__papers"/>
-     <widget class="QWidget" name="horizontalLayoutWidget_2">
+     <widget class="QWidget" name="papers_view"/>
+     <widget class="QWidget" name="hbox_2">
       <layout class="QHBoxLayout" name="bottom">
        <property name="sizeConstraint">
         <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>

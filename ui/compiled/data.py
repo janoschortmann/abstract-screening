@@ -15,10 +15,9 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QFont, QFontDatabase, QGradient, QIcon,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QHeaderView,
-    QLabel, QLayout, QLineEdit, QPushButton,
-    QSizePolicy, QSplitter, QTableView, QVBoxLayout,
-    QWidget)
+from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel,
+    QLayout, QLineEdit, QPushButton, QSizePolicy,
+    QSplitter, QVBoxLayout, QWidget)
 
 class Ui_mainwindow(object):
     def setupUi(self, mainwindow):
@@ -76,16 +75,16 @@ class Ui_mainwindow(object):
         self.splitter = QSplitter(mainwindow)
         self.splitter.setObjectName(u"splitter")
         self.splitter.setOrientation(Qt.Orientation.Vertical)
-        self.__papers = QTableView(self.splitter)
-        self.__papers.setObjectName(u"__papers")
-        self.splitter.addWidget(self.__papers)
-        self.horizontalLayoutWidget_2 = QWidget(self.splitter)
-        self.horizontalLayoutWidget_2.setObjectName(u"horizontalLayoutWidget_2")
-        self.bottom = QHBoxLayout(self.horizontalLayoutWidget_2)
+        self.papers_view = QWidget(self.splitter)
+        self.papers_view.setObjectName(u"papers_view")
+        self.splitter.addWidget(self.papers_view)
+        self.hbox_2 = QWidget(self.splitter)
+        self.hbox_2.setObjectName(u"hbox_2")
+        self.bottom = QHBoxLayout(self.hbox_2)
         self.bottom.setObjectName(u"bottom")
         self.bottom.setSizeConstraint(QLayout.SizeConstraint.SetDefaultConstraint)
         self.bottom.setContentsMargins(0, 0, 0, 0)
-        self.path = QLineEdit(self.horizontalLayoutWidget_2)
+        self.path = QLineEdit(self.hbox_2)
         self.path.setObjectName(u"path")
         sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         sizePolicy1.setHorizontalStretch(0)
@@ -98,7 +97,7 @@ class Ui_mainwindow(object):
 
         self.bottom.addWidget(self.path)
 
-        self.specifier = QComboBox(self.horizontalLayoutWidget_2)
+        self.specifier = QComboBox(self.hbox_2)
         self.specifier.setObjectName(u"specifier")
         sizePolicy2 = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
         sizePolicy2.setHorizontalStretch(0)
@@ -109,7 +108,7 @@ class Ui_mainwindow(object):
 
         self.bottom.addWidget(self.specifier)
 
-        self.add_but = QPushButton(self.horizontalLayoutWidget_2)
+        self.add_but = QPushButton(self.hbox_2)
         self.add_but.setObjectName(u"add_but")
         sizePolicy3 = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
         sizePolicy3.setHorizontalStretch(0)
@@ -123,7 +122,7 @@ class Ui_mainwindow(object):
 
         self.bottom.addWidget(self.add_but)
 
-        self.remove_but = QPushButton(self.horizontalLayoutWidget_2)
+        self.remove_but = QPushButton(self.hbox_2)
         self.remove_but.setObjectName(u"remove_but")
         sizePolicy3.setHeightForWidth(self.remove_but.sizePolicy().hasHeightForWidth())
         self.remove_but.setSizePolicy(sizePolicy3)
@@ -134,7 +133,7 @@ class Ui_mainwindow(object):
 
         self.bottom.addWidget(self.remove_but)
 
-        self.splitter.addWidget(self.horizontalLayoutWidget_2)
+        self.splitter.addWidget(self.hbox_2)
 
         self.verticalLayout.addWidget(self.splitter)
 

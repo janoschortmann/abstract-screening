@@ -131,7 +131,7 @@ class Paper(object):
     """
     def __eq__(self: Self, other) -> bool:
         # Impossibility of self reference in python
-        return isinstance(other, self.__class__) and other.title == self.title and other.date == self.date
+        return other.title == self.title and other.date == self.date
 
     # Lesser function. Used for data structures like sorting
     def __le__(self: Self, other) -> bool:

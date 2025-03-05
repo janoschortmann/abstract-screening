@@ -32,7 +32,6 @@ if __name__ != "__main__":
 
 # I <3 "QPixmap: Must construct a QGuiApplication before a QPixmap"
 app: QApplication = QApplication([])
-from multiprocessing import Queue
 from sklearn.metrics import confusion_matrix, accuracy_score, recall_score, precision_score, f1_score
 from sklearn.tree    import DecisionTreeClassifier
 from threading       import Lock, Thread
@@ -134,6 +133,10 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         self.mountFirst()
         self.show()
 
+    @override
+    def closeEvent(self: Self, event: Any) -> None:
+        app.exit(0)
+
     @Slot(bool)
     @override
     def setEnabled(self: Self, state: bool) -> None:
@@ -157,10 +160,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         self.find_window:     Find = Find("Finder for Central Widget")
 
         # Step defined widgets
-        self.display = FindingView(
-            SelectionModel(self.data_window.training[1]),
-            SelectionView()
-        )
+        self.display = FindingView(SelectionView(self.data_window.training[1]))
         self.options = First()
 
         self.body.insertWidget(0, self.display)
@@ -329,7 +329,10 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         self.options.setParent(None)
 
         # Deleting the widgets associated with the finding window
-        del self.find_window, self.find_but, self.options, self.display
+        self.find_window.deleteLater()
+        self.find_but.deleteLater()
+        self.options.deleteLater()
+        self.display.deleteLater()
 
     # Function that mounts the second step
     def mountSecond(self: Self) -> None:
@@ -383,12 +386,11 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         freq: QDialog = Frequency(self)
 
         # Necessary for assignment, but this is only temporary
-        def _freqCallback(ignored) -> None:
+        def _freqCallback() -> None:
             nonlocal value
             value = freq.freq_edit.text()
 
         freq.accepted.connect(_freqCallback)
-        del _freqCallback
 
         while not valid:
             freq.exec()
@@ -405,7 +407,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
             load.getStems()
             load.close()
 
-            def do() -> None:
+            def _do() -> None:
                 nonlocal load, self
                 stem: Stem = Stem(load.grams, self)
 
@@ -421,7 +423,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                 self.next.setDisabled(False)
                 stem.show()
 
-            GLO_DEL.call(do)
+            GLO_DEL.call(_do)
 
         self.next.setDisabled(True)
         Thread(target=_target).start()
@@ -429,7 +431,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
     # Forth and final step of the mounting
     def mountForth(self: Self) -> None:
         self.options.setParent(None)
-        del self.options
+        self.options.deleteLater()
 
         self.options = Third()
         self.bottom.insertWidget(0, self.options)
@@ -697,7 +699,6 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                 sorted(dataset_list)
 
                 sorted = moved
-                del moved
 
                 base: float = params["thr"]
                 grow: float = params["step"]
