@@ -203,6 +203,11 @@ class Ui_third_option(object):
 
         self.verticalLayout.addWidget(self.binary_vars)
 
+        QWidget.setTabOrder(self.size_edit, self.pos_edit)
+        QWidget.setTabOrder(self.pos_edit, self.seed_edit)
+        QWidget.setTabOrder(self.seed_edit, self.splits_edit)
+        QWidget.setTabOrder(self.splits_edit, self.model_box)
+        QWidget.setTabOrder(self.model_box, self.sampling_box)
 
         self.retranslateUi(third_option)
 

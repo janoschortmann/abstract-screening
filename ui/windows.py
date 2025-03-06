@@ -29,6 +29,7 @@ from ui.compiled                     import (
                                               frequency,
                                               interval,
                                               loading,
+                                              nc,
                                               paper,
                                               params,
                                               stats,
@@ -179,6 +180,38 @@ class Interval(QDialog, interval.Ui_mainwindow):
 
         self.from_edit.setText(str(fr))
         self.to_edit.setText(str(to))
+
+# FIXME : Find a permanent way to put text in a graph that is movable
+"""
+A simple class that will show the findings of the Operating Curve
+based on the inputs of the user.
+
+In theory, this shouldn't be necessary if the module mathplot was used,
+but, given that the UI elements are created with PyQt, pyqtgraph is used.
+
+Since the user can move around the given graph, a fixed position,
+as the LabelItem and TextItem provide, are too narrow for this intended usage.
+
+The best possible option is to use the LegendItem, but that has a lot of problems
+and hacks too. In general, because of the hardship that is to set labels in a graph
+in pyqtgraph, a new window is used to display necessary information.
+
+@author  Thomas Gauthier
+@version 0.0
+"""
+@final
+class NC(QDialog, nc.Ui_mainwindow):
+    def __init__(
+                  self:   Self,
+                  sample: int,
+                  pos:    int,
+                  parent: QWidget | None = None
+                ) -> None:
+        super().__init__(parent)
+        self.setupUi(self)
+
+        self.sample_edit.setText(str(sample))
+        self.pos_edit.setText(str(pos))
 
 """
 The main window after the stem has been called.
@@ -446,8 +479,6 @@ class Find(QWidget, find.Ui_mainwindow):
     @override
     def setEnabled(self: Self, state: bool) -> None:
         self.clear_search.setEnabled(state)
-        self.clear_edits.setEnabled(state)
-        self.find_but.setEnabled(state)
 
     @Slot(bool)
     @override
@@ -481,7 +512,6 @@ class Find(QWidget, find.Ui_mainwindow):
 
         return arguments
 
-
 """
 The class representing the complete dataset.
 That imply that this manages all the data by itself.
@@ -509,115 +539,137 @@ class Data(QWidget, data.Ui_mainwindow):
     This is the easiest option since the model from the TableView
     can modify the data without this class being notified.
     """
-    class JoinedList(object):
+    class JoinedList(list):
         def __init__(self: Self) -> None:
             super().__init__()
             self.leasers:  list[tuple[SignalInstance, list] | None] = list()
-            self.papers:   list[Paper] = list()
             self.emitters: set[SignalInstance] = set()
 
-        def copy(self: Self) -> list:
-            clone: Data.JoinedList = []
-            for item in range(len(self)): clone.append(self[item])
+        @override
+        def copy(self: Self) -> list[Paper]:
+            clone: list[Paper] = []
+            self.foreach(lambda item: clone.append(self[item]))
             return clone
 
-        def append(self: Self, item: Any) -> None:
-            raise Exception("Not implemented")
+        def hardCopy(self: Self) -> list:
+            clone: list[tuple[tuple[SignalInstance, list] | None, Paper]] = []
+            self.cforeach(lambda item: clone.append(self.get(item)))
+            return clone
 
-        def append(self: Self, lease: tuple[SignalInstance, list] | None, instance: Paper, /) -> None:
-            self.papers.append(instance)
+        @override
+        def append(self: Self, item: Paper) -> None:
+            self.append((None, item))
+
+        def appendWithLease(self: Self, lease: tuple[SignalInstance, list] | None, instance: Paper, /) -> None:
+            super().append(instance)
             self.leasers.append(lease)
 
             if lease is not None:
                 lease[1].append(instance)
                 self.emitters.add(lease[0])
 
+        @override
         def extend(self: Self, iterable: Iterable[tuple[tuple[SignalInstance, list] | None, Paper]], /) -> None:
             for item in iterable: self.append(*item)
 
+        @override
         def pop(self: Self, index: Any = -1, /) -> tuple[tuple[SignalInstance, list] | None, Paper]:
             val: tuple[SignalInstance, list] | None = self.leasers.pop(index)
-            paper: Paper = self.papers.pop(index)
+            paper: Paper = super().pop(index)
 
-            if val is not None: self.emitters.add(val[0])
-            if paper in val[1]: val[1].remove(paper)
+            if val is not None:
+                val[1].remove(paper)
+                self.emitters.add(val[0])
 
             return (val, paper)
 
+        @override
         def insert(self: Self, index: Any,  lease: tuple[SignalInstance, list] | None, obj: Paper, /) -> Never:
-            self.papers.insert(index, obj)
+            super().insert(index, obj)
             self.leasers.insert(index, lease)
 
-            if lease is not None: self.emitters.add(lease[0])
-            if obj not in lease[1]: lease[1].append(obj)
+            if lease is not None:
+                lease[1].append(obj)
+                self.emitters.add(lease[0])
 
-        def index(self: Self, value: Paper, /) -> int:
-            for count in range(len(self.papers)):
-                if value == self.papers[count]: return count
-            raise IndexError("Value is not included in the list")
-
-        def count(self: Self, value: Paper) -> int:
-            return self.papers.count(value)
-
+        @override
         def remove(self: Self, value: Paper) -> None:
-            index: int = self.papers.index(value)
-            self.papers.pop(index)
+            index: int = super().index(value)
+            super().pop(index)
 
             obj: tuple[SignalInstance, list] | None = self.leasers.pop(index)
             if obj is not None:
                 obj[1].remove(value)
                 self.emitters.add(obj[0])  # Faster than calling each time the emit()
 
-        def removeAll(self: Self, other: Paper) -> None:
+        def removeAll(self: Self, other: Iterable[Paper]) -> None:
             for item in other: self.remove(item)
 
+        def clear(self: Self) -> None:
+            super().clear()
+            self.emitters.update(self.leasers)
+            self.leasers.clear()
+
+        @override
         def sort(self: Self, *, key: Callable[..., Any], reverse: bool = False) -> Never:
             raise Exception("Not implemented")
 
-        def __contains__(self: Self, value: Paper):
-            for paper in self.papers:
-                if paper == value: return True
-            return False
-
-        def __iter__(self: Self) -> Iterator[tuple[tuple[SignalInstance, list] | None, Paper]]:
-            self.counter: int = 0
+        @override
+        def __iter__(self: Self) -> Iterator[Paper]:
+            self.icount: int = 0
             return self
 
-        def __next__(self: Self) -> tuple[tuple[SignalInstance, list] | None, Paper]:
-            if self.counter == len(self):
-                del self.counter
+        def __citer__(self: Self) -> Iterator[tuple[tuple[SignalInstance, list] | None, Paper]]:
+            self.cicount: int = 0
+            return self
+
+        @override
+        def __next__(self: Self) -> Paper:
+            if self.icount == len(self):
+                del self.icount
                 raise StopIteration()
-            item: tuple[tuple[SignalInstance, list] | None, Paper]  = self[self.counter]
-            self.counter += 1
-            return item
+            self.icount += 1
+            return self[self.icount - 1]
 
-        def __getitem__(self: Self, index: Any, /) -> tuple[tuple[SignalInstance, list] | None, Paper]:
-            return (self.leasers[index], self.papers[index])
+        def __cnext__(self: Self) -> tuple[tuple[SignalInstance, list] | None, Paper]:
+            if self.cicount == len(self):
+                del self.cicount
+                raise StopIteration()
+            self.cicount += 1
+            return self.get(self.cicount - 1)
 
-        def __setitem__(self: Self, key: SupportsIndex, value: Paper) -> None:
-            raise Exception("Not implemented")
+        def foreach(self: Self, call: Callable[[Paper], None]) -> None:
+            for paper in self: call(paper)
 
-        def __len__(self: Self) -> int:
-            return len(self.papers)
+        def cforeach(self: Self, call: Callable[[tuple[tuple[SignalInstance, list] | None, Paper]], None]) -> None:
+            it: Iterator = self.__citer__()
+            for _ in range(len(self)): call(next(it))
+
+        @override
+        def __getitem__(self: Self, index: int, /):
+            return super().__getitem__(index)
+
+        def get(self: Self, index: int) -> tuple[tuple[SignalInstance, list] | None, Paper]:
+            return (self.leasers[index], super().__getitem__(index))
 
         # The rest of the methods will be the same
+
         def emit(self: Self) -> None:
             for emitter in self.emitters:
                 if emitter is not None: emitter.emit()
+            self.emitters.clear()
 
         def switch(self: Self, paper: Paper, new: tuple[SignalInstance, list] | None) -> None:
-            index: int = self.papers.index(paper)
+            index: int = super().index(paper)
             temp: tuple[SignalInstance, list] | None = self.leasers[index]
 
             if temp == new: return
             self.leasers[index] = new
 
-            if temp is not None:
-                self.emitters.add(temp[0])
-                temp[1].remove(paper)
-            if new is not None:
-                self.emitters.add(new[0])
-                new[1].append(self.papers[index])  # To not change the label
+            if temp is not None: temp[1].remove(paper)
+            if new is not None: new[1].append(paper)
+
+            self.emitters.update(new[0], temp[0])
 
     being_modified:    Signal = Signal(bool)
     validation_signal: Signal = Signal()
@@ -648,7 +700,7 @@ class Data(QWidget, data.Ui_mainwindow):
         table: QTableView = QTableView()
         table.setModel(
             FindingModel(
-                self.dataset[1].papers,
+                self.dataset[1],
                 headers=["Title", "Journal", "Date"],
                 columns=["title", "jour", "date"]
             )
@@ -736,18 +788,21 @@ class Data(QWidget, data.Ui_mainwindow):
     """
     @staticmethod
     def dump[Q](failures: list[Q], parent: QWidget | None = None) -> None:
+        global GLO_DEL
         if not failures:
             funcs.mkabsent(Data.CORE_DUMP)
             with open(osp.join(Data.CORE_DUMP, datetime.now().strftime("%Y-%m-%d-%Hh%Mm") + ".txt"), mode="w") as file:
                 file.writelines(map(str, failures))
 
-            mbFactory(
-                "Core Dumped",
-                f"Parsing of lines failed. Core dumped in the {Data.CORE_DUMP} directory",
-                QMessageBox.Icon.Warning,
-                QMessageBox.StandardButton.Ok,
-                parent
-            ).show()
+            GLO_DEL.call(
+                lambda : mbFactory(
+                    "Core Dumped",
+                    f"Parsing of lines failed. Core dumped in the {Data.CORE_DUMP} directory",
+                    QMessageBox.Icon.Warning,
+                    QMessageBox.StandardButton.Ok,
+                    parent
+                ).show()
+            )
 
     # Default callback for the adder
     def add(self: Self, text: str | None = None,  path: str | None = None) -> None:
@@ -771,11 +826,10 @@ class Data(QWidget, data.Ui_mainwindow):
                 )
             )
         except Exception as ex:
-            print(ex)
             GLO_DEL.call(
                 lambda path, _self: errorFactory(
                     "Error in adding",
-                    "Error in " + str(path.absolute()),
+                    ex + " in " + str(path.absolute()),
                     _self
                 ).show(),
                 path=_path,
@@ -822,8 +876,8 @@ class Data(QWidget, data.Ui_mainwindow):
                     # If this is too long, either change the dataset to a set and not a list or use numpy
                     index: int = -1
                     try: index = self.dataset[1].index(parsed)
-                    except Exception as ex:
-                        self.dataset[1].append(dataset, parsed)
+                    except:
+                        self.dataset[1].appendWithLease(dataset, parsed)
                         continue
 
                     # The if is not necessary in this context, but is better understood and less bug prone
@@ -1294,7 +1348,6 @@ class First(QWidget, first.Ui_first_option):
             )
             raise ValueError()
         else: date = matches[0]
-
         params: dict[str, str] = appendParams()
 
         """
@@ -1315,11 +1368,11 @@ class First(QWidget, first.Ui_first_option):
             "dates":     [],
             "doi":       []
         }
-
         GLO_DEL.call(lambda _self: _self.progress.setMaximum(limit), _self=self)
+        search_quote: str = quote(self.query_box.document().toPlainText().strip())
+        additional:   str = quote(self.params_box.document().toPlainText().strip())
         while processed < limit:
-            # TODO: CHANGE THE VIEW FOR THE FINAL
-            url: str = f"https://api.elsevier.com/content/search/scopus?apiKey={key}{f"&date={date}" if date else ""}&query={quote(self.query_box.document().toPlainText())}&view=STANDARD&start={processed}&count={min(First.COUNT, limit - processed)}"
+            url: str = f"https://api.elsevier.com/content/search/scopus?apiKey={key}{f"&date={date}" if date else ""}&query={search_quote}&view=COMPLETE&start={processed}&count={min(First.COUNT, limit - processed)}{f"&{additional}" if additional else ""}"
             processed += First.COUNT
 
             entries: Any = None
@@ -1440,6 +1493,8 @@ class First(QWidget, first.Ui_first_option):
         printer(First.FILES[1], citations)
         printer(First.FILES[2], sample)
 
+        print("finished")
+
 """
 Class representing the second window.
 Like all other classes, will emit signals representing which actions to chose.
@@ -1473,34 +1528,42 @@ class Second(QWidget, second.Ui_second_option):
         self.setEnabled(not state)
 
     # Sends the report of the parameter used
-    def sendReport(self: Self) -> dict[str, float] | None:
-        unverified_report: dict[str, float] | None = None
+    def sendReport(self: Self) -> dict[str, float]:
+        global GLO_DEL
+        unverified_report: dict[str, float] = dict()
 
         try:
-            edits: list[str] = (
+            edits: list[str] = [
                                  self.alpha_edit.text(),
                                  self.beta_edit.text(),
                                  self.param_edit_1.text(),
                                  self.param_edit_2.text()
-                               )
+                               ]
             for count in range(len(edits)):
                 if not edits[count]: edits.insert(count, '0')
 
             unverified_report = {
-                "alpha":  float(edits[0]),
-                "beta":   float(edits[1]),
-                "param1": float(edits[2]),
-                "param2": float(edits[3])
+                "alpha":  float(edits[0].strip()),
+                "beta":   float(edits[1].strip()),
+                "param1": float(edits[2].strip()),
+                "param2": float(edits[3].strip())
             }
 
             for value in unverified_report.values():
                 if value < 0 or value > 1: raise Exception()
 
-            if unverified_report["param1"] > unverified_report["param2"]: raise Exception()
-        except *Exception as error:
-            errorFactory("Wrong parameters", "Parameters entered are wrong", self).show()
-            raise error
-
+            if unverified_report["param1"] > unverified_report["param2"]:
+                raise Exception("Parameter 1 is greater than Parameter 2")
+        except Exception as ex:
+            GLO_DEL.call(
+                lambda _self: errorFactory(
+                    "Error in parameters",
+                    "Exception was raised while setting the parameters",
+                    _self
+                ).show(),
+                _self=self
+            )
+            raise ex
         return unverified_report
 
 """
@@ -1523,6 +1586,7 @@ class Third(QWidget, third.Ui_third_option):
 
     # Sends a report of the current state of this window
     def sendReport(self: Self) -> dict[str, Any] | None:
+        global GLO_DEL
         unverified_report: dict[str, Any] | None = None
 
         # Shortcut used to quickly verify the information
@@ -1532,17 +1596,24 @@ class Third(QWidget, third.Ui_third_option):
             else: unverified_report[name] = param
 
         try:
-            testing("pos",    float(self.pos_edit.text()),  lambda x: x > 0 and x < 1)
-            testing("size",   float(self.size_edit.text()), lambda x: x > 0 and x < 1)
-            testing("splits", int(self.splits_edit.text()), lambda x: x >= 0)
+            testing("pos",    float(self.pos_edit.text().strip()),  lambda x: x > 0 and x < 1)
+            testing("size",   float(self.size_edit.text().strip()), lambda x: x > 0 and x < 1)
+            testing("splits", int(self.splits_edit.text().strip()), lambda x: x >= 0)
 
             text: str = self.seed_edit.text()
-            unverified_report["seed"]     = int(text) if text else 0
+            unverified_report["seed"]     = int(text.strip()) if text else 0
             unverified_report["model"]    = self.model_box.currentIndex()
             unverified_report["sampling"] = self.sampling_box.currentIndex()
-        except *Exception as error:
-            errorFactory("Wrong parameters", "Parameters entered are wrong", self).show()
-            raise error
+        except Exception as ex:
+            GLO_DEL.call(
+                lambda _self : errorFactory(
+                    "Wrong parameters",
+                    "Parameters entered are wrong",
+                    _self
+                ).show(),
+                _self=self
+            )
+            raise ex
 
         return unverified_report
 
@@ -1558,8 +1629,8 @@ from PySide6.QtWidgets import QWidget
 def toggler(window: QWidget) -> Callable[..., None]:
     window.closeEvent = lambda ignored: window.hide()
     def inner() -> None:
-        if not window.isHidden(): window.hide()
-        else: window.show()
+        if window.isHidden(): window.show()
+        else: window.raise_()
     return inner
 
 """

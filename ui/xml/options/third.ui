@@ -375,6 +375,14 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>size_edit</tabstop>
+  <tabstop>pos_edit</tabstop>
+  <tabstop>seed_edit</tabstop>
+  <tabstop>splits_edit</tabstop>
+  <tabstop>model_box</tabstop>
+  <tabstop>sampling_box</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

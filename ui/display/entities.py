@@ -9,8 +9,8 @@ which shows each paper. Another example would be the Operating Characteristic Cu
 @author  Thomas Gauthier
 @version 0.4
 """
-from multiprocessing      import Array, Lock, RLock, Pool
-from pyqtgraph            import PlotWidget, mkPen, QtGui
+from multiprocessing      import Lock, RLock
+from PySide6              import QtGui
 from PySide6.QtCore       import (
                                    QAbstractTableModel,
                                    QEvent,
@@ -27,11 +27,13 @@ from scipy.stats          import binom
 from typing               import Any, Callable, Final, Iterable, Self, override, final
 
 from python.src.utils.files     import Paper
-from python.src.utils.functions import clearEmpty, unique
+from python.src.utils.functions import unique
 from ui.resources_loader        import *
 
-import datetime as dt
-import numpy as np
+import datetime  as dt
+import numpy     as np
+import pyqtgraph as pg
+
 import re
 
 # Aliases
@@ -64,7 +66,7 @@ class PaperTableModel(QAbstractTableModel):
 
         self._columns: Final[list[str]] = columns.copy()
         self._headers: Final[list[str]] = headers.copy()
-        self._data:    list[Paper] = data if data is not None else []
+        self._data:    list[Paper] = data if data else []
 
     @override
     def rowCount(self: Self, index: QModelIndex) -> int:
@@ -465,7 +467,6 @@ class FindingView(QWidget):
               label:   str | None
             ) -> None:
         if label not in Paper.POSSIBILITIES: raise Exception("Not in possibilities")
-        print("called find")
         """
         HACK : Access to private variables.
 
@@ -543,7 +544,7 @@ class OperatingCurve(QWidget):
     final int points = Math.round(screens.stream().map(screen::getWidth).max() * CONSTANT);
     Or something like that...
     """
-    POINTS:     Final[int]   = 500
+    POINTS:     Final[int]   = 100
     # Threshold to stop the search for the nc parameters. Will throw an exception pass that point
     THRESHOLD:  Final[int]   = 1000
     # Number of processes in the pool
@@ -555,20 +556,26 @@ class OperatingCurve(QWidget):
     def __init__(self: Self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         # Plot theme
-        self.plot: PlotWidget = PlotWidget()
-        self.pen:  QtGui.QPen = mkPen(color='b', width=5, style=Qt.PenStyle.SolidLine)
+        self.plot: pg.PlotWidget = pg.PlotWidget()
+        self.pen:  QtGui.QPen = pg.mkPen(color='k', width=2, style=Qt.PenStyle.SolidLine)
 
-        self.plot.setBackground('w')
         self.plot.plotItem.setLabel("left", "Probability of acceptance")
         self.plot.plotItem.setLabel("bottom", "Fraction defective")
+        self.plot.plotItem.setTitle("Operating Curve")
+        self.plot.setBackgroundBrush(QtGui.QColor.fromRgb(2960685))
+        # Doesn't do anything because all the objects added don't have the attribute 'plotData'/'implements
+        # Making the internal name be none thus making the label not append any InfiniteLine that will
+        # Be instantiated later on. Leave this as be.
+        self.plot.plotItem.addLegend()  # FIXME : Make a legend that shows the InfiniteLines
 
         # Layout
         layout = QVBoxLayout(self)
-        layout.addLayout(self.plot)
+        layout.addWidget(self.plot)
         self.setLayout(layout)
 
         # Multithreading
         self.__lock: Any = RLock()
+        self.nc:     Any = None
 
     @override
     def setDisabled(self: Self, state: bool) -> None:
@@ -587,16 +594,17 @@ class OperatingCurve(QWidget):
             self.__lock.acquire()
 
             self.modifying.emit(True)
-            ret: R = func(args, kwargs)
-            self.modifying.emit(False)
+            try: ret: R = func(*args, **kwargs)
+            finally:
+                self.modifying.emit(False)
+                self.__lock.release()
 
-            self.__lock.release()
             return ret
         return inner
 
     # Setter for the attributes of the characteristic function
     def setAttributes(
-                       self: Self,
+                       self:   Self,
                        alpha:  float,
                        beta:   float,
                        param1: float,
@@ -622,58 +630,58 @@ class OperatingCurve(QWidget):
     Note that the amount of points plotted follows the resolution of the biggest screen.
     """
     def plotf(self: Self, delegate: bool = True) -> None:
-        from ui.windows import GLO_DEL
-
+        from ui.windows import GLO_DEL, NC
         for item in (self.alpha, self.beta, self.param1, self.param2):
             if item is None: raise Exception("Cannot have null parameters")
-        if self.nc[0] == -1: self.findNC()
+        if self.nc is None or self.nc[0] == -1: self.findNC()
 
         p_values: np.ndarray[np.floating[Any]] = np.linspace(0, 0.5, OperatingCurve.POINTS)
         probabilities: list[float] = [OperatingCurve.probAcceptance(self.nc[0], self.nc[1], p) for p in p_values]
 
-        def do() -> None:
+        def _do() -> None:
+            nonlocal self, p_values, probabilities
             # Plotting the function and the lines
             self.plot.plotItem.plot(p_values, probabilities, pen=self.pen)
-            self.plot.plotItem.addLegend()
 
             # Lines representing the current values used
             producer: float = 1 - self.alpha
             self.plot.plotItem.addLine(
-                                        name = "Producer: 1 - alpha (" + str(producer) + ')',
-                                        y    = producer,
-                                        pen  = mkPen(hsv = (20, 85, 95), width = 0.5, style = Qt.PenStyle.DashLine)
+                                        label     = "Producer: 1 - alpha (" + str(producer) + ')',
+                                        labelOpts = {'movable': True},
+                                        y         = producer,
+                                        pen       = pg.mkPen(color="#f26824", width=2, style=Qt.PenStyle.DashLine)
                                       )
 
             self.plot.plotItem.addLine(
-                                        name = "Consumer: beta (" + str(self.beta) + ')',
-                                        y    = self.beta,
-                                        pen  = mkPen(color = 'b', width = 0.5, style = Qt.PenStyle.DashLine)
+                                        label     = "Consumer: beta (" + str(self.beta) + ')',
+                                        labelOpts = {'movable': True},
+                                        y         = self.beta,
+                                        pen       = pg.mkPen(color='w', width=2, style=Qt.PenStyle.DashLine)
                                       )
 
             self.plot.plotItem.addLine(
-                                        name = "Parameter 1: " + str(self.param1),
-                                        x    = self.param1,
-                                        pen  = mkPen(color = 'g', width = 0.5, style = Qt.PenStyle.DashLine)
+                                        label     = "Parameter 1: " + str(self.param1),
+                                        labelOpts = {'movable': True},
+                                        x         = self.param1,
+                                        pen       = pg.mkPen(color='g', width=2, style=Qt.PenStyle.DashLine)
                                       )
 
             self.plot.plotItem.addLine(
-                                        name = "Parameter 2: " + str(self.param2),
-                                        x    = self.param2,
-                                        pen  = mkPen(color = 'r', width = 0.5, style = Qt.PenStyle.DashLine)
+                                        label     = "Parameter 2: " + str(self.param2),
+                                        labelOpts = {'movable': True},
+                                        x         = self.param2,
+                                        pen       = pg.mkPen(color='r', width=2, style=Qt.PenStyle.DashLine)
                                       )
 
             # Other formatting
-            self.plot.plotItem.showGrid(x = True, y = True)
-            self.plot.plotItem.legend.addItem(None, "Number of samples: " + str(self.nc[0]))
-            self.plot.plotItem.legend.addItem(None, "Minimal number of acceptance: " + str(self.nc[1]))
+            self.plot.plotItem.showGrid(x=True, y=True)
+            self.nc_win = NC(self.nc[0], self.nc[1])
+            self.nc_win.show()
 
-        if delegate: do()
-        else: GLO_DEL.call(do)
+        if not delegate: _do()
+        else: GLO_DEL.call(_do)
 
-
-    """
-    Clears the mask of all data put inside
-    """
+    # Clears the mask of all data put inside
     def clear(self: Self) -> None:
         self.plot.plotItem.clear()
 
@@ -688,52 +696,7 @@ class OperatingCurve(QWidget):
 
     For more information on this method, please consult the requirements file.
     """
-    def findNC(self: Self) -> tuple[int, int]:
-        lock:    Any = Lock()
-        self.nc: Any = Array('i', 2)
-
-        # Inner function used by the instances of the pool
-        # In most cases, it will find the smallest result
-        # And the trade for speed is worth the while
-        def inner(pool: Any, initial: int) -> tuple[int, int]:
-            num: int = initial
-
-            while num <= OperatingCurve.THRESHOLD:
-                for cnt in range(num):
-                    # Calculate producer's risk
-                    producer: float = sum([binom.pmf(k, num, self.param1) for k in range(cnt + 1)])
-                    # Calculate consumer's risk
-                    consumer: float = sum([binom.pmf(k, num, self.param2) for k in range(cnt + 1)])
-
-                    if producer >= 1 - self.alpha and consumer <= self.beta:
-                        nonlocal lock
-                        # If two results are possible, lock one for the pool to terminate
-                        lock.acquire()
-                        self.nc[0] = num
-                        self.nc[1] = cnt
-                        pool.terminate()
-
-                    num += OperatingCurve.POOL_COUNT
-            self.nc[0] = -1
-            pool.terminate()
-
-        with Pool(OperatingCurve.POOL_COUNT) as pool:
-            for i in range(OperatingCurve.POOL_COUNT):
-                pool.apply(inner, args=(pool, i + 1))
-
-            pool.join()
-
-            if self.nc[0] == -1:
-                raise Exception("Could not find a nc that satisfies the values")
-
-        lock.release()
-
-    """
-    Linear method of findNC. For more information, go see findNC for more information.
-
-    This method is deprecated.
-    """
-    def linearFindNC(self: Self) -> None:
+    def findNC(self: Self) -> None:
         for num in range(1, OperatingCurve.THRESHOLD):
             for cnt in range(num):
                 # Calculate producer's risk
@@ -753,7 +716,6 @@ class OperatingCurve(QWidget):
 OperatingCurve.setAttributes = OperatingCurve.modifies(OperatingCurve.setAttributes)
 OperatingCurve.plotf         = OperatingCurve.modifies(OperatingCurve.plotf)
 OperatingCurve.findNC        = OperatingCurve.modifies(OperatingCurve.findNC)
-OperatingCurve.linearFindNC  = OperatingCurve.modifies(OperatingCurve.linearFindNC)
 
 """
 A factory method that will return a QMessageBox
@@ -763,7 +725,13 @@ for some error based on client input.
 @version 0.0
 """
 def errorFactory(name: str, message: str, parent: QWidget | None = None) -> QMessageBox:
-    return mbFactory(name, message, QMessageBox.Icon.Critical, QMessageBox.StandardButton.Ok, parent)
+    return mbFactory(
+        name,
+        message,
+        QMessageBox.Icon.Critical,
+        QMessageBox.StandardButton.Ok,
+        parent
+    )
 
 """
 A factory method that will return a QMessageBox with the given parameters.

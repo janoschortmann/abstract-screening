@@ -16,8 +16,8 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QApplication, QGridLayout, QHBoxLayout, QLabel,
-    QLayout, QLineEdit, QPushButton, QSizePolicy,
-    QTextEdit, QVBoxLayout, QWidget)
+    QLayout, QLineEdit, QPlainTextEdit, QPushButton,
+    QSizePolicy, QSpacerItem, QVBoxLayout, QWidget)
 
 class Ui_first_option(object):
     def setupUi(self, first_option):
@@ -171,11 +171,47 @@ class Ui_first_option(object):
 
         self.horizontalLayout.addWidget(self.variables)
 
-        self.query_box = QTextEdit(first_option)
+        self.query_boxes = QVBoxLayout()
+        self.query_boxes.setObjectName(u"query_boxes")
+        self.query_boxes.setContentsMargins(-1, 0, -1, 20)
+        self.search_lab = QLabel(first_option)
+        self.search_lab.setObjectName(u"search_lab")
+        self.search_lab.setFont(font)
+        self.search_lab.setStyleSheet(u"")
+        self.search_lab.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.query_boxes.addWidget(self.search_lab)
+
+        self.query_box = QPlainTextEdit(first_option)
         self.query_box.setObjectName(u"query_box")
 
-        self.horizontalLayout.addWidget(self.query_box)
+        self.query_boxes.addWidget(self.query_box)
 
+        self.space = QSpacerItem(20, 10, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+
+        self.query_boxes.addItem(self.space)
+
+        self.params_lab = QLabel(first_option)
+        self.params_lab.setObjectName(u"params_lab")
+        self.params_lab.setFont(font)
+        self.params_lab.setStyleSheet(u"")
+        self.params_lab.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.query_boxes.addWidget(self.params_lab)
+
+        self.params_box = QPlainTextEdit(first_option)
+        self.params_box.setObjectName(u"params_box")
+
+        self.query_boxes.addWidget(self.params_box)
+
+
+        self.horizontalLayout.addLayout(self.query_boxes)
+
+        QWidget.setTabOrder(self.date_edit, self.sample_edit)
+        QWidget.setTabOrder(self.sample_edit, self.directory_edit)
+        QWidget.setTabOrder(self.directory_edit, self.validation_edit)
+        QWidget.setTabOrder(self.validation_edit, self.add)
+        QWidget.setTabOrder(self.add, self.remove)
 
         self.retranslateUi(first_option)
 
@@ -194,5 +230,7 @@ class Ui_first_option(object):
         self.validation_lab.setText(QCoreApplication.translate("first_option", u"Validation Size", None))
         self.add.setText(QCoreApplication.translate("first_option", u"Add", None))
         self.remove.setText(QCoreApplication.translate("first_option", u"Remove", None))
+        self.search_lab.setText(QCoreApplication.translate("first_option", u"Query Search", None))
+        self.params_lab.setText(QCoreApplication.translate("first_option", u"Additional Params", None))
     # retranslateUi
 

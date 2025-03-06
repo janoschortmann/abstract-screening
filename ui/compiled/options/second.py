@@ -144,6 +144,11 @@ class Ui_second_option(object):
 
         self.horizontalLayout.addLayout(self.main_grid)
 
+        QWidget.setTabOrder(self.alpha_edit, self.param_edit_1)
+        QWidget.setTabOrder(self.param_edit_1, self.beta_edit)
+        QWidget.setTabOrder(self.beta_edit, self.param_edit_2)
+        QWidget.setTabOrder(self.param_edit_2, self.plot)
+        QWidget.setTabOrder(self.plot, self.clear)
 
         self.retranslateUi(second_option)
 
@@ -157,10 +162,14 @@ class Ui_second_option(object):
         self.col_1.setText(QCoreApplication.translate("second_option", u":", None))
         self.param_lab_2.setText(QCoreApplication.translate("second_option", u"Parameter 2", None))
         self.clear.setText(QCoreApplication.translate("second_option", u"Clear", None))
+        self.param_edit_1.setText(QCoreApplication.translate("second_option", u"0.01", None))
         self.param_lab_1.setText(QCoreApplication.translate("second_option", u"Parameter 1", None))
         self.col_2.setText(QCoreApplication.translate("second_option", u":", None))
+        self.beta_edit.setText(QCoreApplication.translate("second_option", u"0.03", None))
+        self.alpha_edit.setText(QCoreApplication.translate("second_option", u"0.0007", None))
         self.beta_lab.setText(QCoreApplication.translate("second_option", u"Beta", None))
         self.col_3.setText(QCoreApplication.translate("second_option", u":", None))
         self.plot.setText(QCoreApplication.translate("second_option", u"Plot", None))
+        self.param_edit_2.setText(QCoreApplication.translate("second_option", u"0.2", None))
     # retranslateUi
 

@@ -280,10 +280,87 @@
     </widget>
    </item>
    <item>
-    <widget class="QTextEdit" name="query_box"/>
+    <layout class="QVBoxLayout" name="query_boxes">
+     <property name="topMargin">
+      <number>0</number>
+     </property>
+     <property name="bottomMargin">
+      <number>20</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="search_lab">
+       <property name="font">
+        <font>
+         <family>Open Sans</family>
+         <pointsize>10</pointsize>
+         <italic>true</italic>
+        </font>
+       </property>
+       <property name="styleSheet">
+        <string notr="true"/>
+       </property>
+       <property name="text">
+        <string>Query Search</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPlainTextEdit" name="query_box"/>
+     </item>
+     <item>
+      <spacer name="space">
+       <property name="orientation">
+        <enum>Qt::Orientation::Vertical</enum>
+       </property>
+       <property name="sizeType">
+        <enum>QSizePolicy::Policy::Fixed</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>10</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QLabel" name="params_lab">
+       <property name="font">
+        <font>
+         <family>Open Sans</family>
+         <pointsize>10</pointsize>
+         <italic>true</italic>
+        </font>
+       </property>
+       <property name="styleSheet">
+        <string notr="true"/>
+       </property>
+       <property name="text">
+        <string>Additional Params</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPlainTextEdit" name="params_box"/>
+     </item>
+    </layout>
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>date_edit</tabstop>
+  <tabstop>sample_edit</tabstop>
+  <tabstop>directory_edit</tabstop>
+  <tabstop>validation_edit</tabstop>
+  <tabstop>add</tabstop>
+  <tabstop>remove</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

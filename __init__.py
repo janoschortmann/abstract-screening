@@ -119,7 +119,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         )
 
         ite: Iterable[Any] = iter(sequence)
-        cur: Callable[[None], None] = next(ite)
+        cur: Callable[[None], None] | None = None
         err: bool = False
         def _executeNext() -> None:
             nonlocal ite, cur, err
@@ -127,7 +127,13 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
             try:
                 cur()
                 err = False
-            except: err = True
+            except Exception as ex:
+                errorFactory(
+                    "Error in next",
+                    f"Couldn't proceed because of : {ex}",
+                    self
+                ).show()
+                err = True
 
         self.next.clicked.connect(_executeNext)
         self.mountFirst()
@@ -299,16 +305,16 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                 "Papers missing labels",
                 "Some papers are missing labels. Do you still wish to proceed?",
                 QMessageBox.Icon.Warning,
-                QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Abort,
+                QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Abort,
                 self
             )
 
             # Shortcut since there is an assignment
-            def _boxAccepted(ignored) -> None:
+            def _boxAccepted() -> None:
                 nonlocal response
                 response = True
 
-            box.accepted.connect(_boxAccepted)
+            box.rejected.connect(_boxAccepted)
             box.exec()
 
             # This could be changed
@@ -339,7 +345,6 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         global GLO_DEL
         # Deactivating all possibilities of modifying the data
         self.data_window.setDisabled(True)
-
         # Step defined widgets
         self.display = OperatingCurve()
         self.options = Second()
@@ -348,7 +353,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         self.bottom.insertWidget(0, self.options)
 
         self.display.setParent(self.body)
-        self.bottom.setParent(self.options)
+        self.options.setParent(self.bottom)
 
         # Styling for the display
         self.display.setStyleSheet(MainWindow.DEFAULT_STYLE)
@@ -357,14 +362,15 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
             try:
                 self.display.setAttributes(**self.options.sendReport())
                 self.display.plotf()
-            except:
+            except Exception as ex:
                 GLO_DEL.call(
-                    lambda _self: errorFactory(
+                    lambda _self, ex: errorFactory(
                         "Could not plot",
-                        "Error in the plotting. Hint: Check whether the input boxes are not empty.",
+                        f"Error in the plotting. Error: {ex}",
                         _self
                     ).show(),
-                    _self=self
+                    _self=self,
+                    ex=ex
                 )
 
         # Disabling callbacks
@@ -372,8 +378,8 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         self.display.modifying.connect(self.options.setDisabled)
 
         # Plotting callbacks
-        self.options.plot_signal.connect(lambda ignored: Thread(target=_plotSignal).start())
-        self.options.clear.connect(self.display.clear)
+        self.options.plot_signal.connect(lambda : Thread(target=_plotSignal).start())
+        self.options.clear.pressed.connect(self.display.clear)
 
     """
     Note that the second window will not be dismounted since the rest of the
