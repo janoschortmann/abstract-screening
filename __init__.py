@@ -771,7 +771,11 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                     _self=self
                 )
 
-                params: dict[str, str] = appendParams()
+                try: params: dict[str, str] = appendParams()
+                except:
+                    ret_val[1] = "Parameters are not defined"
+                    waiter.notify()
+
                 pred: np.ndarray = model.predict_proba(self.grams_found)
                 for count in range(len(pred)): self.data_window.dataset[1][count].assign(float(pred[count, 1]))
                 del pred
@@ -864,12 +868,13 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                 mkabsent(MainWindow.DEFAULT_DIR)
                 file: str = osp.join(MainWindow.DEFAULT_DIR, f"papers-{datetime.now().strftime("%Y-%m-%d-%Hh%Mm")}.txt")
                 with open(file, mode="w", encoding="utf8") as writable:
-                    writable.writelines(
-                        map(
-                            lambda paper: f"{paper.title} | {paper.date} | {paper.jour} | {paper.prob}\n",
-                            self.data_window.dataset[1][cutoff_index:]
+                    if cutoff_index < len(self.data_window.dataset[1]):  # By one error
+                        writable.writelines(
+                            map(
+                                lambda paper: f"{paper.title} | {paper.date} | {paper.jour} | {paper.prob}\n",
+                                self.data_window.dataset[1][(cutoff_index + 1):]
+                            )
                         )
-                    )
 
                 GLO_DEL.wait(
                     lambda file, _self: mbFactory(

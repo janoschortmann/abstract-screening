@@ -433,7 +433,7 @@ class FindingView(QWidget):
     def _getCriterias(
                        self:    Self,
                        title:   tuple[bool, str] | None,
-                       journal: tuple[bool, str] | None,
+                       jour: tuple[bool, str] | None,
                        date:    tuple[dt.date, dt.date] | None,
                        doi:     str | None,
                        label:   str | None
@@ -442,7 +442,7 @@ class FindingView(QWidget):
         shortcut: Callable[..., re.Pattern] = lambda arg: (re.compile(arg[1] if arg[0] else re.escape(arg[1])))
 
         every: list[Callable[[Paper], bool] | None] = []
-        if journal is not None: every.append((lambda val: (lambda paper: val.match(paper.journal)))(shortcut(journal)))
+        if jour is not None: every.append((lambda val: (lambda paper: val.match(paper.jour)))(shortcut(jour)))
         if title is not None: every.append((lambda val: (lambda paper: val.match(paper.title)))(shortcut(title)))
         if date is not None: every.append(lambda paper: (date[0] <= paper.date and paper.date <= date[1]))
         if doi is not None: every.append(lambda paper: (paper.doi == doi))

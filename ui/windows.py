@@ -397,14 +397,15 @@ class Parameters(QWidget, params.Ui_mainwindow):
             step_cast: float = float(step_text)
             limit_cast:  int = int(query_text)
 
-            if limit_cast < 0 or thr_cast < 0 or thr_cast > 0 or step_cast < 0 or step_cast > 0:
+            if limit_cast < 0 or thr_cast < 0 or thr_cast > 1 or step_cast < 0 or step_cast > 1:
                 raise Exception("Invalid")
-        except:
+        except Exception as ex:
             errorFactory(
                 "Wrong Parameters",
                 "Parameters entered are invalid.",
                 self
             ).show()
+            raise ex
 
         funcs.mkabsent(Parameters.DIR)
         with open(Parameters.FILE, mode="w") as file:

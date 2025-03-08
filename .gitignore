@@ -4,5 +4,12 @@ out/
 # Caching
 __pycache__/
 
+# PyInstaller dirs
+build/
+dist/
+
+# PyInstaller files
+__init__.spec
+
 # MacOS
 .DS_Store
