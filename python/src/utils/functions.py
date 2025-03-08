@@ -96,25 +96,25 @@ A simple binary search implementation.
 Returns -1 if the target does not exist.
 
 @author  Thomas Gauthier
-@version 0.0
+@version 0.1
 """
-import math
-def binarySearch[T](ite: Iterable[T], target: T) -> int:
+from math import floor
+def binarySearch[T](ite: Iterable[T], target: T, key: Callable[..., Any] | None = None) -> int:
     if len(ite) == 0: return -1
 
     low:   int = 0
     high:  int = len(ite)
 
-    mid:   int = math.floor((high - low) / 2)
-    mid_v:  T = ite[mid]
+    mid:   int = floor((high - low) / 2)
+    midv:    T = key(ite[mid])
 
-    while mid_v != target:
+    while midv != target:
         if low == high - 1: return -1
-        elif mid_v < target: low = mid
+        elif midv < target: low = mid
         else: high = mid
 
-        mid   = math.floor((high + low) / 2)
-        mid_v = ite[mid]
+        mid   = floor((high + low) / 2)
+        midv  = key(ite[mid])
 
     return mid
 
@@ -127,28 +127,29 @@ ite[index], this will return the index 0. The same is done, but with len(ite) - 
 if, foreach index, ite[index] is less or equal to the cutoff.
 
 @author  Thomas Gauthier
-@version 0.0
+@version 0.1
 """
-def cutoff[T](ite: Iterable[T], cutoff: T) -> int:
+def cutoff[T](ite: Any, cutoff: T, key: Callable[..., Any] | None = None) -> int:
     if len(ite) == 0: return 0
 
     low:  int = 0
     high: int = len(ite)
 
-    mid:  int = math.floor((high - low) / 2)
-    mid_v:  T = ite[mid]
+    mid:  int = floor((high - low) / 2)
+    midv:   T = key(ite[mid])
 
     while True:
         if low == high - 1: return low
-        elif mid_v < cutoff: low = mid
+        elif midv < cutoff: low = mid
         else: high = mid
 
-        mid   = math.floor((high + low) / 2)
-        mid_v = ite[mid]
+        mid   = floor((high + low) / 2)
+        midv  = key(ite[mid])
 
 import pathlib as pl
 import os.path as osp
 import os
+
 """
 Makes subdirectories from a given path.
 

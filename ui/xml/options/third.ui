@@ -124,12 +124,18 @@
         <property name="styleSheet">
          <string notr="true">border: 0px solid grey;</string>
         </property>
+        <property name="text">
+         <string>2</string>
+        </property>
        </widget>
       </item>
       <item row="1" column="2">
        <widget class="QLineEdit" name="seed_edit">
         <property name="styleSheet">
          <string notr="true">border: 0px solid grey;</string>
+        </property>
+        <property name="text">
+         <string>0</string>
         </property>
        </widget>
       </item>
@@ -155,12 +161,18 @@
         <property name="styleSheet">
          <string notr="true">border: 0px solid grey;</string>
         </property>
+        <property name="text">
+         <string>0.2</string>
+        </property>
        </widget>
       </item>
       <item row="0" column="6">
        <widget class="QLineEdit" name="pos_edit">
         <property name="styleSheet">
          <string notr="true">border: 0px solid grey;</string>
+        </property>
+        <property name="text">
+         <string>0.3</string>
         </property>
        </widget>
       </item>

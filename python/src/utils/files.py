@@ -96,8 +96,8 @@ class Paper(object):
             if not string or string[-1] != "\\":
                 final.append(concat)
                 concat = ""
-            elif string and string[-1] == "\\":
-                concat  = concat[:-1] + "\""
+            else: concat  = concat[:-1] + "\""
+
         paper: Paper = Paper(
             final[0],
             final[2],
@@ -107,6 +107,7 @@ class Paper(object):
             doi=final[8]
         )
         paper.dire = dire
+
         return paper
 
     """

@@ -20,9 +20,10 @@ from PySide6.QtWidgets import (
                                 QTableView
                               )
 from PySide6.QtCore    import QObject, QThread, Qt, Signal, SignalInstance, Slot
-from PySide6.QtGui     import QStandardItemModel
+from PySide6.QtGui     import QStandardItemModel, QStandardItem
 
 from python.src.utils.files          import Paper, CENTRAL
+from python.src.utils.classes        import TreatedException
 from ui.compiled                     import (
                                               data,
                                               find,
@@ -62,7 +63,6 @@ import json
 import math
 import random
 import string
-import sys
 
 # Renamming
 import os.path as osp
@@ -96,7 +96,7 @@ class Delegator(QObject):
 
     def call[**P](
               self:     Self,
-              func:     Callable[[None], None],
+              func:     Callable[P, None],
               *args:    P.args,
               raised:   Callable[[Exception], None] | None = None,
               final:    Callable[[bool], None] | None = None,
@@ -105,6 +105,7 @@ class Delegator(QObject):
         self.__lock.acquire()
 
         def _call() -> None:
+            nonlocal self, func, raised, final, args, kwargs
             thrown: bool = False
             try: func(*args, **kwargs)
             except Exception as ex:
@@ -121,7 +122,7 @@ class Delegator(QObject):
 
     def wait[**P](
               self:     Self,
-              func:     Callable[[None], None],
+              func:     Callable[P, None],
               *args:    P.args,
               raised:   Callable[[Exception], None] | None = None,
               final:    Callable[[bool], None] | None = None,
@@ -131,8 +132,9 @@ class Delegator(QObject):
         self.__lock.acquire()
 
         def _call() -> None:
+            nonlocal self, func, raised, final, waiter, args, kwargs
             thrown: bool = False
-            try: func(args, kwargs)
+            try: func(*args, **kwargs)
             except Exception as ex:
                 thrown = True
                 if raised is not None: raised(ex)
@@ -171,15 +173,20 @@ class Interval(QDialog, interval.Ui_mainwindow):
         self.setupUi(self)
 
         # The main window
-        self.field = PaperTableView(
-            papers,
-            ["title", "date", "jour", "prob"],
-            ["Title", "Date", "Journal", "Probability"],
-            self
+        self.field.layout().addWidget(
+            PaperTableView(
+                papers,
+                ["title", "date", "jour", "prob"],
+                ["Title", "Date", "Journal", "Probability"],
+                self
+            )
         )
 
         self.from_edit.setText(str(fr))
         self.to_edit.setText(str(to))
+
+        self.ok.pressed.connect(lambda : (self.accepted.emit(), self.close()))
+        self.cancel.pressed.connect(lambda : (self.rejected.emit(), self.close()))
 
 # FIXME : Find a permanent way to put text in a graph that is movable
 """
@@ -269,8 +276,8 @@ class Stem(QDialog, stem.Ui_mainwindow):
         self.setupUi(self)
 
         # ListView manipulation
-        self.__model: QStandardItemModel = QStandardItemModel()
-        self.__model.appendRow(data)
+        self.__model: QStandardItemModel = QStandardItemModel(self)
+        for stem in data: self.__model.appendRow(QStandardItem(str(stem)))
         self.stem_list.setModel(self.__model)
 
 """
@@ -382,16 +389,35 @@ class Parameters(QWidget, params.Ui_mainwindow):
     @Slot()
     def printInfo(self: Self) -> None:
         self.writing.emit(True)
+
+        thr_text:   str = self.thr_edit.text().strip()
+        step_text:  str = self.step_edit.text().strip()
+        query_text: str = self.query_edit.text().strip()
+
+        try:
+            thr_cast:  float = float(thr_text)
+            step_cast: float = float(step_text)
+            limit_cast:  int = int(query_text)
+
+            if limit_cast < 0 or thr_cast < 0 or thr_cast > 0 or step_cast < 0 or step_cast > 0:
+                raise Exception("Invalid")
+        except:
+            errorFactory(
+                "Wrong Parameters",
+                "Parameters entered are invalid",
+                self
+            ).show()
+
         funcs.mkabsent(Parameters.DIR)
         with open(Parameters.FILE, mode="w") as file:
             file.writelines(
                 json.dumps(
                     {
-                        Parameters.LABELS["limit"]: self.query_edit.text(),
-                        Parameters.LABELS["api"]:   self.api_edit.text(),
-                        Parameters.LABELS["token"]: self.token_edit.text(),
-                        Parameters.LABELS["thr"]:   self.thr_edit.text(),
-                        Parameters.LABELS["step"]:  self.step_edit.text()
+                        Parameters.LABELS["limit"]: query_text,
+                        Parameters.LABELS["api"]:   self.api_edit.text().strip(),
+                        Parameters.LABELS["token"]: self.token_edit.text().strip(),
+                        Parameters.LABELS["thr"]:   thr_text,
+                        Parameters.LABELS["step"]:  step_text
                     },
                     indent=4
                 ).__str__()
@@ -421,7 +447,7 @@ When pressed "cancel", will emit a signal with object "False"
 """
 @final
 class Statistics(QDialog, stats.Ui_mainwindow):
-    result: Signal = Signal(bool)
+    result: Signal = Signal(int)
 
     # Initializer
     def __init__[**P](self: Self, parent: QWidget | None = None, **args: P.kwargs) -> None:
@@ -431,19 +457,22 @@ class Statistics(QDialog, stats.Ui_mainwindow):
         shortcut: Callable[[str], str] = lambda string: args.get(string, "N/A")
 
         # Congruent window
-        self.an_stat.setText(shortcut("an"))
-        self.fn_stat.setText(shortcut("fn"))
-        self.ap_stat.setText(shortcut("ap"))
-        self.fp_stat.setText(shortcut("fp"))
+        self.an_stat.setText(str(shortcut("an")))
+        self.fn_stat.setText(str(shortcut("fn")))
+        self.ap_stat.setText(str(shortcut("ap")))
+        self.fp_stat.setText(str(shortcut("fp")))
 
         # Bottom
-        self.f1_show.setText(shortcut("f1"))
-        self.acc_show.setText(shortcut("acc"))
-        self.prec_show.setText(shortcut("pre"))
-        self.recall_show.setText(shortcut("rec"))
+        self.f1_show.setText(str(shortcut("f1")))
+        self.acc_show.setText(str(shortcut("acc")))
+        self.prec_show.setText(str(shortcut("pre")))
+        self.recall_show.setText(str(shortcut("rec")))
 
-        self.decision_box.accepted.connect(lambda ignored: self.result.emit(True))
-        self.decision_box.rejected.connect(lambda ignored: self.result.emit(False))
+        self.save.pressed.connect(lambda : self.result.emit(1))
+        self.cancel.pressed.connect(lambda : self.result.emit(0))
+
+        saved: Callable[..., None] = self.closeEvent
+        self.closeEvent = lambda event: (self.result.emit(-1), saved(event))
 
 """
 A window for finding documents and removing them. Is used, for example,
@@ -611,10 +640,6 @@ class Data(QWidget, data.Ui_mainwindow):
             self.leasers.clear()
 
         @override
-        def sort(self: Self, *, key: Callable[..., Any], reverse: bool = False) -> Never:
-            raise Exception("Not implemented")
-
-        @override
         def __iter__(self: Self) -> Iterator[Paper]:
             self.icount: int = 0
             return self
@@ -768,7 +793,6 @@ class Data(QWidget, data.Ui_mainwindow):
         # Very well just get the state from the Signal of this widget, but this could still be useful in the future
         res: bool = self.__lock.acquire(wait)
         if not res: return res
-
         try:
             self.being_modified.emit(True)
             function(self.__papers)
@@ -789,27 +813,26 @@ class Data(QWidget, data.Ui_mainwindow):
     @staticmethod
     def dump[Q](failures: list[Q], parent: QWidget | None = None) -> None:
         global GLO_DEL
-        if not failures:
-            funcs.mkabsent(Data.CORE_DUMP)
-            with open(osp.join(Data.CORE_DUMP, datetime.now().strftime("%Y-%m-%d-%Hh%Mm") + ".txt"), mode="w") as file:
-                file.writelines(map(str, failures))
 
-            GLO_DEL.call(
-                lambda : mbFactory(
-                    "Core Dumped",
-                    f"Parsing of lines failed. Core dumped in the {Data.CORE_DUMP} directory",
-                    QMessageBox.Icon.Warning,
-                    QMessageBox.StandardButton.Ok,
-                    parent
-                ).show()
-            )
+        funcs.mkabsent(Data.CORE_DUMP)
+        with open(osp.join(Data.CORE_DUMP, datetime.now().strftime("%Y-%m-%d-%Hh%Mm") + ".txt"), mode="w") as file:
+            file.writelines(map(lambda val: str(val) + '\n', failures))
+
+        GLO_DEL.call(
+            lambda : mbFactory(
+                "Core Dumped",
+                f"Parsing of lines failed. Core dumped in the {Data.CORE_DUMP} directory",
+                QMessageBox.Icon.Warning,
+                QMessageBox.StandardButton.Ok,
+                parent
+            ).show()
+        )
 
     # Default callback for the adder
     def add(self: Self, text: str | None = None,  path: str | None = None) -> None:
         global GLO_DEL
         text:   str = (self.specifier.currentText() if text is None else text)
         _path: Path = Path((self.path.text() if path is None else path).strip())
-
         # Could also be done with a dictionary
         # But I don't feel like it
         dataset: tuple[SignalInstance, list] | None = None
@@ -818,7 +841,7 @@ class Data(QWidget, data.Ui_mainwindow):
             case "Training":   dataset = self.training
             case _: dataset = None
 
-        failures: list[tuple[Path, int]] = []
+        failures: list[tuple[Path, str]] = []
         try: self.accessPapers(
                 lambda papers: (
                     failures.extend(self._recursiveAdd(dataset, _path)),
@@ -827,12 +850,13 @@ class Data(QWidget, data.Ui_mainwindow):
             )
         except Exception as ex:
             GLO_DEL.call(
-                lambda path, _self: errorFactory(
+                lambda path, _self, ex: errorFactory(
                     "Error in adding",
-                    ex + " in " + str(path.absolute()),
+                    f"{ex} in {path.absolute()}",
                     _self
                 ).show(),
                 path=_path,
+                ex=ex,
                 _self=self
             )
 
@@ -851,7 +875,7 @@ class Data(QWidget, data.Ui_mainwindow):
     and then remove it, which would bring the runtime at twice the time.
     """
     def _recursiveAdd(self: Self, dataset: tuple[SignalInstance, list] | None, path: Path) -> list[tuple[Path, int]]:
-        failures: list[tuple[Path, int]] = []
+        failures: list[tuple[Path, str]] = []
         if path.is_dir():
             for other in path.iterdir(): failures.extend(self._recursiveAdd(dataset, other.absolute()))
         elif path.is_file():
@@ -866,17 +890,16 @@ class Data(QWidget, data.Ui_mainwindow):
                     count += 1
 
                     try: parsed = Paper.parseLine(line, str(path))
-                    except:
-                        failures.append((path, count))
+                    except Exception as ex:
+                        failures.append((path, f"{ex} at line {count}"))
                         continue
-
 
                     # Parsed will not be None
                     # Must be done manually to find the lines
                     # If this is too long, either change the dataset to a set and not a list or use numpy
                     index: int = -1
                     try: index = self.dataset[1].index(parsed)
-                    except:
+                    except Exception as ex:
                         self.dataset[1].appendWithLease(dataset, parsed)
                         continue
 
@@ -893,7 +916,7 @@ class Data(QWidget, data.Ui_mainwindow):
         global GLO_DEL
         _path: Path = Path((self.path.text() if path is None else path).strip())
 
-        failures: list[tuple[Path, str, int]] = []
+        failures: list[tuple[Path, str]] = []
         try: self.accessPapers(
             lambda papers: (
                     failures.extend(self._recursiveRemove(_path)),
@@ -904,7 +927,7 @@ class Data(QWidget, data.Ui_mainwindow):
             GLO_DEL.call(
                 lambda ex, path, _self: errorFactory(
                     "Error in removing",
-                    ex + " in " + str(path.absolute()),
+                    f"{ex} in {path.absolute()}",
                     _self
                 ).show(),
                 ex=ex,
@@ -927,7 +950,7 @@ class Data(QWidget, data.Ui_mainwindow):
     and then remove it, which would bring the runtime at twice the time.
     """
     def _recursiveRemove(self: Self, path: Path) -> list[tuple[Path, int, int]]:
-        failures: list[tuple[Path, int, int]] = []
+        failures: list[tuple[Path, str]] = []
 
         if path.is_dir():
             for other in path.iterdir(): failures.extend(self._recursiveRemove(other.absolute()))
@@ -944,12 +967,12 @@ class Data(QWidget, data.Ui_mainwindow):
                     # Must do this manually since the remove function will
                     # Search for a tuple and not an element
                     try: parsed = Paper.parseLine(line, str(path))
-                    except:
-                        failures.append((path, 0, count))
+                    except Exception as ex:
+                        failures.append((path, f"{ex} at line {count}"))
                         continue
 
                     try: self.dataset[1].remove(parsed)
-                    except: failures.append((path, 1, count))
+                    except Exception as ex: failures.append((path, f"{ex} at line {count}"))
         else: raise Exception("Bad file type")
 
         return failures
@@ -1173,14 +1196,13 @@ class Loading(QDialog, loading.Ui_mainwindow):
         self.grams_found: np.ndarray = np.concatenate((uni_sample_found, bi_found, tri_found), axis=1)
         funcs.mkabsent(Loading.DEFAULT_WRITE)
         pd.DataFrame(self.grams).to_csv(
-            osp.join(Loading.DEFAULT_WRITE, datetime.now().strftime("%Y-%m-%d-%Hh%Mm") + ".txt"),
+            osp.join(Loading.DEFAULT_WRITE, f"stems-{datetime.now().strftime("%Y-%m-%d-%Hh%Mm")}.txt"),
             sep=',',
             header=False,
             index=False
         )
 
         GLO_DEL.call(lambda _self: (_self.process.setText("Finished"), _self.bar.setValue(100)), _self=self)
-
         self.done.emit()
 
 """
@@ -1493,8 +1515,6 @@ class First(QWidget, first.Ui_first_option):
         printer(First.FILES[1], citations)
         printer(First.FILES[2], sample)
 
-        print("finished")
-
 """
 Class representing the second window.
 Like all other classes, will emit signals representing which actions to chose.
@@ -1540,7 +1560,7 @@ class Second(QWidget, second.Ui_second_option):
                                  self.param_edit_2.text()
                                ]
             for count in range(len(edits)):
-                if not edits[count]: edits.insert(count, '0')
+                if not edits[count]: edits[count] = '0'
 
             unverified_report = {
                 "alpha":  float(edits[0].strip()),
@@ -1550,11 +1570,11 @@ class Second(QWidget, second.Ui_second_option):
             }
 
             for value in unverified_report.values():
-                if value < 0 or value > 1: raise Exception()
+                if value < 0 or value > 1: raise ValueError("Values are invalid")
 
             if unverified_report["param1"] > unverified_report["param2"]:
-                raise Exception("Parameter 1 is greater than Parameter 2")
-        except Exception as ex:
+                raise ValueError("Parameter 1 is greater than Parameter 2")
+        except ValueError as ex:
             GLO_DEL.call(
                 lambda _self: errorFactory(
                     "Error in parameters",
@@ -1563,7 +1583,7 @@ class Second(QWidget, second.Ui_second_option):
                 ).show(),
                 _self=self
             )
-            raise ex
+            raise TreatedException("Value error")
         return unverified_report
 
 """
@@ -1585,26 +1605,31 @@ class Third(QWidget, third.Ui_third_option):
         self.sampling_box.addItems(("Oversampling", "Undersampling"))
 
     # Sends a report of the current state of this window
-    def sendReport(self: Self) -> dict[str, Any] | None:
+    def sendReport(self: Self) -> dict[str, Any] | Never:
         global GLO_DEL
-        unverified_report: dict[str, Any] | None = None
+        unverified_report: dict[str, Any] = dict()
 
         # Shortcut used to quickly verify the information
         def testing(name: str, param: Paper, criteria: Callable[..., bool] | None = None) -> None:
             nonlocal unverified_report
-            if criteria and not criteria(param): raise Exception()
+            if criteria and not criteria(param): raise ValueError("Value doesn't respect criteria")
             else: unverified_report[name] = param
 
         try:
             testing("pos",    float(self.pos_edit.text().strip()),  lambda x: x > 0 and x < 1)
             testing("size",   float(self.size_edit.text().strip()), lambda x: x > 0 and x < 1)
-            testing("splits", int(self.splits_edit.text().strip()), lambda x: x >= 0)
 
-            text: str = self.seed_edit.text()
-            unverified_report["seed"]     = int(text.strip()) if text else 0
+            seed_text:   str = self.seed_edit.text().strip()
+            unverified_report["seed"]     = int(seed_text) if seed_text else 0
             unverified_report["model"]    = self.model_box.currentIndex()
             unverified_report["sampling"] = self.sampling_box.currentIndex()
-        except Exception as ex:
+
+
+            splits_text: str = self.splits_edit.text().strip()
+            unverified_report["splits"]   = int(splits_text) if splits_text else 2
+            if unverified_report["splits"] < 2: raise ValueError("Splits not valid. Range: [2, inf)")
+
+        except ValueError as ex:
             GLO_DEL.call(
                 lambda _self : errorFactory(
                     "Wrong parameters",

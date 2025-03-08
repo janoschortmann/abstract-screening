@@ -15,9 +15,9 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QFont, QFontDatabase, QGradient, QIcon,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QAbstractButton, QApplication, QDialog, QDialogButtonBox,
-    QFrame, QHBoxLayout, QLabel, QSizePolicy,
-    QSpacerItem, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QDialog, QFrame, QHBoxLayout,
+    QLabel, QPushButton, QSizePolicy, QSpacerItem,
+    QVBoxLayout, QWidget)
 
 class Ui_mainwindow(object):
     def setupUi(self, mainwindow):
@@ -52,6 +52,8 @@ class Ui_mainwindow(object):
         sizePolicy1.setVerticalStretch(0)
         sizePolicy1.setHeightForWidth(self.field.sizePolicy().hasHeightForWidth())
         self.field.setSizePolicy(sizePolicy1)
+        self.field_layout = QVBoxLayout(self.field)
+        self.field_layout.setObjectName(u"field_layout")
 
         self.verticalLayout.addWidget(self.field)
 
@@ -131,11 +133,24 @@ class Ui_mainwindow(object):
 
         self.verticalLayout.addWidget(self.line_2)
 
-        self.box = QDialogButtonBox(mainwindow)
-        self.box.setObjectName(u"box")
-        self.box.setStandardButtons(QDialogButtonBox.StandardButton.No|QDialogButtonBox.StandardButton.Yes)
+        self.buttonbox = QHBoxLayout()
+        self.buttonbox.setObjectName(u"buttonbox")
+        self.spacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
-        self.verticalLayout.addWidget(self.box)
+        self.buttonbox.addItem(self.spacer)
+
+        self.ok = QPushButton(mainwindow)
+        self.ok.setObjectName(u"ok")
+
+        self.buttonbox.addWidget(self.ok)
+
+        self.cancel = QPushButton(mainwindow)
+        self.cancel.setObjectName(u"cancel")
+
+        self.buttonbox.addWidget(self.cancel)
+
+
+        self.verticalLayout.addLayout(self.buttonbox)
 
 
         self.retranslateUi(mainwindow)
@@ -152,5 +167,7 @@ class Ui_mainwindow(object):
         self.to_lab.setText(QCoreApplication.translate("mainwindow", u"To", None))
         self.col_2.setText(QCoreApplication.translate("mainwindow", u":", None))
         self.to_edit.setText(QCoreApplication.translate("mainwindow", u"_____", None))
+        self.ok.setText(QCoreApplication.translate("mainwindow", u"Ok", None))
+        self.cancel.setText(QCoreApplication.translate("mainwindow", u"Cancel", None))
     # retranslateUi
 

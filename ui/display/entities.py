@@ -120,9 +120,8 @@ class PaperTableView(QWidget):
         self.view.setModel(self.model)
 
         # Layout
-        layout: QWidget = QVBoxLayout()
-        layout.addLayout(self.view)
-        self.setLayout(layout)
+        self.setLayout(QVBoxLayout())
+        self.layout().addWidget(self.view)
 
 """
 Implements the PaperTableModel with barebone data manipulation.
@@ -574,8 +573,8 @@ class OperatingCurve(QWidget):
         self.setLayout(layout)
 
         # Multithreading
-        self.__lock: Any = RLock()
-        self.nc:     Any = None
+        self.__lock:         Any = RLock()
+        self.nc: tuple[int, int] = (-1, -1)
 
     @override
     def setDisabled(self: Self, state: bool) -> None:
@@ -633,7 +632,7 @@ class OperatingCurve(QWidget):
         from ui.windows import GLO_DEL, NC
         for item in (self.alpha, self.beta, self.param1, self.param2):
             if item is None: raise Exception("Cannot have null parameters")
-        if self.nc is None or self.nc[0] == -1: self.findNC()
+        self.findNC()
 
         p_values: np.ndarray[np.floating[Any]] = np.linspace(0, 0.5, OperatingCurve.POINTS)
         probabilities: list[float] = [OperatingCurve.probAcceptance(self.nc[0], self.nc[1], p) for p in p_values]
@@ -774,7 +773,7 @@ def waitFactory(
 
     def increase() -> None:
         nonlocal dots
-        dots = dots % maxd + 1
+        dots = (dots % maxd) + 1
 
     timer: QTimer = QTimer(parent)
     timer.setInterval(interval)

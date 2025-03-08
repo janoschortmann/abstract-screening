@@ -5,10 +5,10 @@ Main file setting up the UI and the logic.
 It only contains the MainWindow.
 
 @author  Thomas Gauthier
-@version 0.2
+@version 0.3
 """
 import sys
-#TODO: DEFAULT VALUES, REMOVE PRINTS, MORE QUERY PARAMS
+#TODO: REMOVE PRINTS
 
 # Done to access all newer features of the typing library such as generics
 if sys.version_info < (3, 12):
@@ -19,7 +19,6 @@ from PySide6.QtCore    import Qt
 from PySide6.QtWidgets import (
                                 QApplication,
                                 QDialog,
-                                QDialogButtonBox,
                                 QMainWindow,
                                 QMessageBox,
                                 QPushButton,
@@ -34,17 +33,18 @@ if __name__ != "__main__":
 app: QApplication = QApplication([])
 from sklearn.metrics import confusion_matrix, accuracy_score, recall_score, precision_score, f1_score
 from sklearn.tree    import DecisionTreeClassifier
-from threading       import Lock, Thread
+from threading       import Condition, Lock, Thread
 from typing          import Final, Self, final
 from webbrowser      import open_new_tab
 
+from python.src.utils.classes   import TreatedException
 from python.src.utils.files     import Paper, CENTRAL
 from python.src.utils.functions import cutoff, mkabsent
-from ui.display.entities        import FindingView, OperatingCurve, SelectionView, SelectionModel, waitFactory
+from ui.display.entities        import FindingView, OperatingCurve, SelectionView, waitFactory
 from ui.compiled                import mainwindow
 from ui.windows                 import *
 
-import numpy   as np
+import numpy                   as np
 import sklearn.model_selection as ms
 import sklearn.linear_model    as lm
 
@@ -64,7 +64,7 @@ You can then say, in gruesome terms, this does the "logic" of the app whilst the
 does the "synchronizing" of the app.
 
 @author  Thomas Gauthier
-@version 0.3
+@version 0.4
 """
 @final
 class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
@@ -142,22 +142,6 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
     @override
     def closeEvent(self: Self, event: Any) -> None:
         app.exit(0)
-
-    @Slot(bool)
-    @override
-    def setEnabled(self: Self, state: bool) -> None:
-        self.next.setEnabled(state)
-        self.options.setEnabled(state)
-        self.display.setEnabled(state)
-        self.data_window.setEnabled(state)
-
-        if self.find_window is not None:
-            self.find_window.setEnabled(state)
-
-    @Slot(bool)
-    @override
-    def setDisabled(self: Self, state: bool) -> None:
-        self.setEnabled(not state)
 
     # Function that sets up the first step of the procedure.
     def mountFirst(self: Self) -> None:
@@ -293,6 +277,14 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         if not self.data_window.dataset[1]:  raise Exception("The main dataset was empty.")
         if not self.data_window.training[1]: raise Exception("The training dataset was empty.")
 
+        has_both: int = 0x00
+        for paper in self.data_window.training[1]:
+            if paper.labeled() and paper.label == Paper.LABELS[2]: has_both = has_both | 0b01
+            elif not paper.labeled() or (paper.label == Paper.LABELS[1]): has_both = has_both | 0b10
+
+            if has_both == 0b11: break
+        else: raise Exception("All papers are either included or excluded")
+
         unlabeled: bool = False
         for paper in self.data_window.training[1]:
             if not paper.labeled():
@@ -392,16 +384,18 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         freq: QDialog = Frequency(self)
 
         # Necessary for assignment, but this is only temporary
-        def _freqCallback() -> None:
-            nonlocal value
-            value = freq.freq_edit.text()
+        def _closing() -> None:
+            nonlocal value, freq
+            value = freq.freq_edit.text().strip()
+            freq.close()
 
-        freq.accepted.connect(_freqCallback)
+        freq.closeEvent = lambda ignored: _closing()
+        freq.ok.pressed.connect(lambda : freq.closeEvent(None))
 
         while not valid:
             freq.exec()
             try:
-                value = int(value)
+                value = int(value) if value else 0
                 valid = value >= 0
             except: pass
         del valid
@@ -411,27 +405,35 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
 
         def _target() -> None:
             load.getStems()
-            load.close()
+            GLO_DEL.call(load.close)
 
             def _do() -> None:
                 nonlocal load, self
+                global app
                 stem: Stem = Stem(load.grams, self)
 
-                # Could not include this in lambda, because of the exception
-                def _throwing() -> Never: raise Exception("Stems were rejected")
+                def _throwing() -> None:
+                    errorFactory(
+                        "Stems rejected",
+                        "The stems were rejected. If more stems are wanted, please add more papers to the training dataset.",
+                        self
+                    ).exec()
+                    app.exit(1)
+
                 def _accepted() -> None:
                     self.grams_found = load.grams_found
                     self.grams       = load.grams
+                    self.next.setDisabled(False)
+                    stem.close()
 
-                stem.rejected.connect(_throwing)
-                stem.accepted.connect(_accepted)
+                stem.cancel.pressed.connect(_throwing)
+                stem.ok.pressed.connect(_accepted)
 
-                self.next.setDisabled(False)
                 stem.show()
 
             GLO_DEL.call(_do)
 
-        self.next.setDisabled(True)
+        self.next.setDisabled(True)  # The data_window is already disabled
         Thread(target=_target).start()
 
     # Forth and final step of the mounting
@@ -444,25 +446,47 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         self.options.setParent(self.bottom)
 
         def _predict() -> None:
+            nonlocal self
+            # This should be left with no parent, otherwise, the windows created
+            # By the global delegator will be left under, which is sub-optimal,
+            # Especially when showing the statistics of the model
             mb: QMessageBox = waitFactory(
-                "Wainting window",
+                "Waiting window",
                 "Waiting for predictions",
-                (1000/3),  # A third of a second
-                parent=self
+                (1000/3)  # A third of a second
             )
-            self.setDisabled(True)
-
-            def threadcall() -> None:
+            self.next.setDisabled(True)
+            def _threadcall() -> None:
+                nonlocal self
                 global GLO_DEL, app
                 try:
-                    self.predictions(**self.options.sendReport())
-                    mb.close()
-                    app.exit(0)
-                except:
-                    mb.close()
-                    GLO_DEL.call(lambda _self: _self.setDisabled(False), _self=self)
+                    # Shortcut since self.options.rendReport also raises exceptions
+                    ret_val: tuple[bool, str] = self.predictions(**self.options.sendReport())
+                    if not ret_val[0]: raise Exception(f"Cancelled the predictions because : {ret_val[1]}")
+                    GLO_DEL.call(lambda mb, app: (mb.close(), app.exit(0)), mb=mb, app=app)
+                except TreatedException as _:
+                    GLO_DEL.call(
+                        lambda _self, mb: (mb.close(), _self.next.setDisabled(False)),
+                        _self=self,
+                        mb=mb,
+                    )
+                except Exception as ex:
+                    GLO_DEL.call(
+                        lambda _self, mb, ex: (
+                            mb.close(),
+                            _self.next.setDisabled(False),
+                            errorFactory(
+                                "Prediction Error",
+                                f"Error in the predictions with : {ex}",
+                                _self
+                            ).show()
+                        ),
+                        _self=self,
+                        mb=mb,
+                        ex=ex
+                    )
 
-            Thread(target=threadcall).start()
+            Thread(target=_threadcall).start()
 
         self.next.pressed.connect(_predict)
 
@@ -481,8 +505,9 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                      splits:   int,
                      model:    int,    # 0 is linear regression, 1 is decision tree
                      sampling: int     # 0 is oversampling, 1 is undersampling.
-                   ) -> None:
+                   ) -> bool:
         global GLO_DEL
+
         """
         --------------------------------------------------
                         Separating datasets
@@ -495,50 +520,55 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         training_list:   list[Paper] = self.data_window.training[1]
         validation_list: list[Paper] = self.data_window.validation[1]
 
-        length: int = len(self.grams_found[0]) if self.grams_found else 0
+        length: int = len(self.grams_found[0]) if self.grams_found.any() else 0
         validation_stems: np.ndarray = np.empty((len(validation_list), length))
         training_stems:   np.ndarray = np.empty((len(training_list), length))
 
+        count_val:   int = 0
+        count_train: int = 0
         for count in range(len(dataset_list)):
-            element: Paper = dataset_list[count][1]
+            element: Paper = dataset_list[count]
 
             if element in validation_list:
-                validation_stems[len(validation_stems)] = (self.grams_found[count])
+                validation_stems[count_val] = self.grams_found[count]
+                count_val += 1
                 continue  # Mutually exclusive with the training dataset
             if element in training_list:
-                training_stems[len(training_stems)] = (self.grams_found[count])
+                training_stems[count_train] = self.grams_found[count]
+                count_train += 1
 
-        data_train, data_test, results_train, results_test = ms.train_test_splits(
+        data_train, data_test, results_train, results_test = ms.train_test_split(
             training_stems,
-            map(
-                # As it was pointed out in the instructions, it is better to have false positives than false negatives
-                # Thus, the unlabeled papers will automatically be accepted.
-                # Also, binary input moment
-                lambda paper: not paper.labeled() or paper.label == Paper.LABELS[1],
-                training_list
+            list(
+                map(
+                    lambda paper: int(not paper.labeled() or paper.label == Paper.LABELS[1]),
+                    training_list
+                )
             ),
-            test_size=math.ceil(size * len(training_list)),
+            test_size=size,
             random_state=seed
         )
+
+        # List and not numpy objects
+        results_train = np.asarray(results_train)
+        results_test  = np.asarray(results_test)
 
         """
         --------------------------------------------------
                     Oversampling/Undersamping
         --------------------------------------------------
         """
-        indexes_train: np.ndarray = results_train == 1
-        data_train_p:  np.ndarray = data_train[indexes_train]
-        data_train_n:  np.ndarray = data_train[~indexes_train]
-
-        del indexes_train, indexes_test
+        indexes: np.ndarray = results_train == 1
+        data_train_p:  np.ndarray = data_train[indexes]
+        data_train_n:  np.ndarray = data_train[~indexes]
 
         length_p: int = len(data_train_p)
         length_n: int = len(data_train_n)
-        length        = len(data_train)
+        length:   int = len(data_train)
 
         # Significance of the ratios
         EPSILON: Final[float] = 1e-2  # Note the variable here is not needed, but brings context
-        if pos - round(length_p / length, 2) < -EPSILON:
+        if pos - round(length_p / length, 2) >= EPSILON:
             match sampling:  # Note that Strategy / Command design pattern could also be used
                 case 0:  # Oversampling
                     """
@@ -550,6 +580,8 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                     Define Delta = np - a
                     Delta then represents the variation between the number of
                     papers tShat you want and the actual ones you have.
+
+                    Note that Delta > 0 because of the if statement.
 
                     Let x be a variable such that:
                     (n + x)p - (a + x)    = 0
@@ -564,10 +596,12 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                     data_train_p = np.concatenate(
                         (
                             data_train_p,
-                            np.random.choice(
-                                data_train_p,
-                                size=math.ceil((length * pos - length_p) / (1 - pos))
-                            )
+                            data_train_p[
+                                np.random.choice(
+                                    len(data_train_p),
+                                    size=math.ceil((length * pos - length_p) / (1 - pos))
+                                )
+                            ]
                         ),
                         axis=0
                     )
@@ -582,6 +616,8 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                     Delta then represents the variation between the number of
                     papers that you want and the actual ones you have.
 
+                    Note that Delta > 0 because of the if statement.
+
                     Let x be a variable such that:
                     (n - x)p - a  = 0
                 <=> np - px  - a  = 0
@@ -593,15 +629,31 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                     is valid. Note that p must be different from 0 and 1, otherwise the AI won't
                     work properly, so the division is also valid.
                     """
-                    delta_train_n = np.random.choice(
-                        delta_train_n,
-                        size=max((length_n + math.ceil(length_p / pos)  - length), 0)
+                    delta_train_n = np.concatenate(
+                        (
+                            delta_train_n[
+                                np.random.choice(
+                                    len(delta_train_n),
+                                    size=max((length_n + math.ceil(length_p / pos)  - length), 0)
+                                )
+                            ],
+                            delta_train_n
+                        ),
+                        axis=0
                     )
                 case _: raise Exception("Not implemented")
-            data_train = np.concatenate((data_train_p, data_train_n))
+
+            data_train    = np.concatenate((data_train_p, data_train_n), axis=0)
+            results_train = np.concatenate(
+                (
+                    np.full(data_train_p.shape[0], 1),
+                    np.full(data_train_n.shape[0], 0)
+                ),
+                axis=0
+            )
 
         model: lm.LogisticRegression | DecisionTreeClassifier = (
-            lm.LinearRegression(penalty="l2", random_state=0, max_iter=1000)
+            lm.LogisticRegression(penalty="l2", random_state=0, max_iter=1000)
             if model == 0 else
             DecisionTreeClassifier(random_state=0)
         ).fit(data_train, results_train)
@@ -623,13 +675,25 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
             nonlocal results_test, results_test_pred
             return round(func(results_test, results_test_pred))
 
-        confused_train: np.ndarray = confusion_matrix(results_train, results_train_pred)
-        confused_test:  np.ndarray = confusion_matrix(results_test, results_test_pred)
+        confused_train: np.ndarray = confusion_matrix(
+            y_true=results_train,
+            y_pred=results_train_pred,
+            labels=[0, 1]
+        )
+        confused_test:  np.ndarray = confusion_matrix(
+            y_true=results_test,
+            y_pred=results_test_pred,
+            labels=[0, 1]
+        )
+
+        waiter:  Condition = Condition()
+        ret_val: list = [False, ""]
 
         # Callback since this is UI manipulation
-        def _uiCall[**P](*args: P.args, **kwargs: P.kwargs) -> None:
-            nonlocal self
-            trained_win: Statistics = Statistics(
+        def _uiCall() -> None:
+            nonlocal self, confused_train, confused_test, data_test, data_train, model, splits,\
+            _shortcutTest, _shortcutTrain, results_test, results_train, ret_val, waiter
+            self.trained_win = Statistics(
                 an=confused_train[0,0],
                 fn=confused_train[1, 0],
                 ap=confused_train[1, 1],
@@ -639,9 +703,9 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                 pre=_shortcutTrain(precision_score),
                 f1=_shortcutTrain(f1_score)
             )
-            trained_win.setWindowTitle("Training Window")
+            self.trained_win.setWindowTitle("Training Window")
 
-            test_win: Statistics = Statistics(
+            self.test_win = Statistics(
                 an=confused_test[0,0],
                 fn=confused_test[1, 0],
                 ap=confused_test[1, 1],
@@ -651,82 +715,92 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                 pre=_shortcutTest(precision_score),
                 f1=_shortcutTest(f1_score)
             )
-            test_win.setWindowTitle("Testing Window")
+            self.test_win.setWindowTitle("Testing Window")
 
-            crossval_win: Statistics | None = None
+            self.crossval_win = None
             if splits > len(data_train):
                 errorFactory(
                     "Couldn't split",
                     "The cross-validation could not be performed due to a lack of training data"
                 ).show()
-                crossval_win = Statistics()
+                self.crossval_win = Statistics()
             else:
                 def _shortcutCross(string: str) -> float:
-                    return round(np.mean(ms.cross_val_score(model, data_train, results_train, scoring=string, cv=splits)) * 100, 2)
+                    res: float = 0
+                    try:
+                        res = round(
+                            np.mean(
+                                ms.cross_val_score(
+                                    model,
+                                    data_train,
+                                    results_train,
+                                    scoring=string,
+                                    cv=splits,
+                                    error_score='raise'
+                                )
+                            ) * 100,
+                            2
+                        )
+                    except Exception as ex:
+                        with waiter:
+                            ret_val[1] = str(ex)
+                            waiter.notify()
+                        raise ex
+                    return res
 
-                crossval_win = Statistics(
+                self.crossval_win = Statistics(
                     f1=_shortcutCross("f1"),
-                    acc=_shortcutCross(""),
+                    acc=_shortcutCross("accuracy"),
                     pre=_shortcutCross("precision"),
                     rec=_shortcutCross("recall")
                 )
-            crossval_win.setWindowTitle("Cross Validation Window")
+            self.crossval_win.setWindowTitle("Cross Validation Window")
 
-            lock = Lock()
-            def _closing(accepted: bool) -> None:
-                nonlocal lock
+            blocker = Lock()
+            def _closing() -> None:
+                nonlocal blocker, model, ret_val, self, waiter
                 global GLO_DEL
-                lock.acquire(timeout=0)
+
+                blocker.acquire(timeout=0)
                 GLO_DEL.call(
-                    lambda crossval_win, trained_win, test_win: (
-                        crossval_win.close(),
-                        trained_win.close(),
-                        test_win.close()
+                    lambda _self: (
+                        _self.crossval_win.close(),
+                        _self.trained_win.close(),
+                        _self.test_win.close()
                     ),
-                    trained_win=trained_win,
-                    test_win=test_win,
-                    crossval_win=crossval_win
+                    _self=self
                 )
 
-                if not accepted: raise Exception("Didn't accept")
-
                 params: dict[str, str] = appendParams()
-
                 pred: np.ndarray = model.predict_proba(self.grams_found)
-                for count in range(len(pred)): dataset_list[count][1].assign(pred[count])
+                for count in range(len(pred)): self.data_window.dataset[1][count].assign(float(pred[count, 1]))
                 del pred
 
-                # Shortcut
-                moved: Callable[..., Any]  = sorted
-                sorted = lambda dataset : moved(dataset, key=lambda paper : paper.prob)
+                # I don't know why the lambda function didn't work (since it was recognized as a numpy
+                # Object for some reason, so I deleted it)
+                # The lambda in quesion: moved = lambda dataset: dataset.sort(key=lambda paper: paper.prob)
+                self.data_window.validation[1].sort(key=lambda paper: paper.prob)
+                self.data_window.training[1].sort(key=lambda paper: paper.prob)
+                self.data_window.dataset[1].sort(key=lambda paper: paper.prob)
 
-                sorted(validation_list)
-                sorted(training_list)
-                sorted(dataset_list)
+                base: float = float(params["thr"])
+                grow: float = float(params["step"])
 
-                sorted = moved
-
-                base: float = params["thr"]
-                grow: float = params["step"]
-
-                final_validation: Final[float] | None = None
-                final_training:   Final[float] | None = None
+                final_validation: float = 0
+                final_training:   float = 0
 
                 # Shortcut used to exit the loop with the defined threshold
                 # Needed because of the weird Python scopes and lambdas
                 def _outsideTraining(threshold: float) -> Never:
                     nonlocal final_training
                     final_training = threshold
-                    raise Exception("Exited")
 
                 def _outsideValidation(threshold: float) -> Never:
                     nonlocal final_validation
                     final_validation = threshold
-                    raise Exception("Exited")
 
                 def _show(li: list[Paper], func: Callable[[float], Never]) -> None:
                     global GLO_DEL
-                    prob: Final[list[float]] = map(lambda paper: paper.prob, li)
                     second: float = base + grow
                     first:  float = base
 
@@ -735,37 +809,45 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
 
                     proceed: bool = True
                     le:       int = len(li)
+
+                    # Edge case to skip the break
+                    if le == 0: return
+
                     # index_second is used, since this while loop is actually a do while (which python doesn't have)
                     while index_second < le:
                         index_first  = index_second
-                        index_second = cutoff(prob, second) + 1
+                        index_second = cutoff(li, second, key=lambda paper: paper.prob) + 1
+
+                        def _handler() -> None:
+                            nonlocal proceed, func, first
+                            proceed = False
+                            func(first)
 
                         def _showInterval() -> None:
-                            nonlocal first, second, index_first, index_second, li, first, func
+                            nonlocal first, second, index_first, index_second, li, first, _handler
                             window: QDialog = Interval(li[index_first:index_second], first, second)
-                            window.accepted.connect(lambda : func(first))
+                            window.accepted.connect(_handler)
                             window.exec()
 
-                        def _handler(thrown: bool) -> None:
-                            nonlocal proceed
-                            proceed = thrown
-
-                        GLO_DEL.wait(_showInterval, final=_handler)
-
+                        GLO_DEL.wait(_showInterval)
                         if not proceed: break
 
                         second += grow
                         first  += grow
-                    else: raise Exception("Index is outside of paper probability bonds")
+                    else:
+                        with waiter:
+                            ret_val[1] = "Didn't select a cutoff, no papers met the criteria"
+                            waiter.notify()
+                            return
 
-                _show(training_list, _outsideTraining)
-                _show(validation_list, _outsideValidation)
+                _show(self.data_window.training[1],   _outsideTraining)
+                _show(self.data_window.validation[1], _outsideValidation)
 
                 if final_validation != final_training:
                     GLO_DEL.call(
                         lambda _self: mbFactory(
                             "Different cutoff",
-                            "The cutoff for the validation is different from the training",
+                            "The cutoff for the validation is different from the training; choosing the minimal one.",
                             QMessageBox.Icon.Warning,
                             QMessageBox.StandardButton.Ok,
                             _self
@@ -776,23 +858,25 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                 final: Final[int] = min(final_validation, final_training)
                 del _outsideTraining, _outsideValidation
 
-                cutoff_index: int = cutoff(map(lambda paper : paper.prob, dataset_list), final)
+                # Cannot use the pred np.ndarray, since it is unsorted
+                cutoff_index: int = cutoff(self.data_window.dataset[1], final, key=lambda paper: paper.prob)
 
                 mkabsent(MainWindow.DEFAULT_DIR)
-                file: str = osp.join(MainWindow.DEFAULT_DIR, "papers.txt")
+                file: str = osp.join(MainWindow.DEFAULT_DIR, f"papers-{datetime.now().strftime("%Y-%m-%d-%Hh%Mm")}.txt")
                 with open(file, mode="w", encoding="utf8") as writable:
-                    def _write(paper: tuple[tuple[SignalInstance, list] | None, Paper]) -> str:
-                        real: Paper = paper[1]
-                        return real.title + " " + str(real.date) + " " + str(real.jour) + " " + str(real.prob)
-
-                    writable.writelines(map(_write, dataset_list[cutoff_index:]))
+                    writable.writelines(
+                        map(
+                            lambda paper: f"{paper.title} | {paper.date} | {paper.jour} | {paper.prob}",
+                            self.data_window.dataset[1][cutoff_index:]
+                        )
+                    )
 
                 GLO_DEL.wait(
                     lambda file, _self: mbFactory(
                         "Values printed",
-                        "The final values were printed at " + file,
-                        QMessageBox.StandardButton.Ok,
+                        f"The final values were printed at {file}",
                         QMessageBox.Icon.Information,
+                        QMessageBox.StandardButton.Ok,
                         _self
                     ).exec(),
                     file=file,
@@ -800,18 +884,39 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                 )
 
                 # Programs ends here after going back to `mountForth`
-                lock.release()
+                blocker.release()
+                ret_val[0] = True
+                with waiter: waiter.notify()
 
-            call: Callable[[None], None] = lambda accept: Thread(target=_closing, args=accept).start()
+            num_close: int = 0
+            def _call(state: int) -> None:
+                nonlocal _closing, waiter, num_close
+                if state == 0 or (num_close == 2 and state == -1):
+                    with waiter:
+                        ret_val[1] = "Rejected"
+                        waiter.notify()
+                elif state == 1:
+                    num_close = -1
+                    Thread(target=_closing).start()
+                else: num_close += 1
 
-            crossval_win.result.connect(call)
-            trained_win.result.connect(call)
-            test_win.result.connect(call)
+            self.crossval_win.result.connect(_call)
+            self.trained_win.result.connect(_call)
+            self.test_win.result.connect(_call)
 
-            crossval_win.show()
-            trained_win.show()
-            test_win.show()
+            self.crossval_win.show()
+            self.trained_win.show()
+            self.test_win.show()
 
-        GLO_DEL.call(_uiCall, kwargs=locals())
+        GLO_DEL.call(_uiCall)
+        # In theory, there may be a race condition with the ui calling the _uiCall function
+        # Before this is acquired and the user accepting or refusing everything. But,
+        # Because this is so unlikely, it is left as such. There is no easy fix, since that
+        # Would imply the UI waiting for this thread to acquire the lock only to notify it immediately,
+        # Which would imply a rework of the Delegator class in its entirety, which seems unnecessary
+        with waiter: waiter.wait()
+
+        return ret_val
+
 main: QMainWindow = MainWindow()
 sys.exit(app.exec())

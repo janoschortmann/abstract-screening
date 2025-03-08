@@ -15,22 +15,22 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QFont, QFontDatabase, QGradient, QIcon,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QAbstractButton, QApplication, QDialog, QDialogButtonBox,
-    QFrame, QGridLayout, QHBoxLayout, QLabel,
-    QSizePolicy, QSpacerItem, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QDialog, QFrame, QGridLayout,
+    QHBoxLayout, QLabel, QPushButton, QSizePolicy,
+    QSpacerItem, QVBoxLayout, QWidget)
 
 class Ui_mainwindow(object):
     def setupUi(self, mainwindow):
         if not mainwindow.objectName():
             mainwindow.setObjectName(u"mainwindow")
-        mainwindow.resize(500, 300)
+        mainwindow.resize(600, 300)
         sizePolicy = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(mainwindow.sizePolicy().hasHeightForWidth())
         mainwindow.setSizePolicy(sizePolicy)
-        mainwindow.setMinimumSize(QSize(500, 300))
-        mainwindow.setMaximumSize(QSize(500, 300))
+        mainwindow.setMinimumSize(QSize(600, 300))
+        mainwindow.setMaximumSize(QSize(600, 300))
         mainwindow.setSizeIncrement(QSize(0, 0))
         mainwindow.setStyleSheet(u"")
         self.verticalLayout = QVBoxLayout(mainwindow)
@@ -214,6 +214,23 @@ class Ui_mainwindow(object):
 
         self.precision.addWidget(self.prec_show)
 
+        self.f1_lab = QLabel(self.precision_box)
+        self.f1_lab.setObjectName(u"f1_lab")
+
+        self.precision.addWidget(self.f1_lab)
+
+        self.col_4 = QLabel(self.precision_box)
+        self.col_4.setObjectName(u"col_4")
+        sizePolicy4.setHeightForWidth(self.col_4.sizePolicy().hasHeightForWidth())
+        self.col_4.setSizePolicy(sizePolicy4)
+
+        self.precision.addWidget(self.col_4)
+
+        self.f1_show = QLabel(self.precision_box)
+        self.f1_show.setObjectName(u"f1_show")
+
+        self.precision.addWidget(self.f1_show)
+
 
         self.verticalLayout.addWidget(self.precision_box)
 
@@ -224,19 +241,31 @@ class Ui_mainwindow(object):
 
         self.verticalLayout.addWidget(self.line)
 
-        self.decision_box = QDialogButtonBox(mainwindow)
-        self.decision_box.setObjectName(u"decision_box")
-        self.decision_box.setStyleSheet(u"")
-        self.decision_box.setOrientation(Qt.Orientation.Horizontal)
-        self.decision_box.setStandardButtons(QDialogButtonBox.StandardButton.Cancel|QDialogButtonBox.StandardButton.Save)
-        self.decision_box.setCenterButtons(False)
+        self.horizontalWidget = QWidget(mainwindow)
+        self.horizontalWidget.setObjectName(u"horizontalWidget")
+        sizePolicy2.setHeightForWidth(self.horizontalWidget.sizePolicy().hasHeightForWidth())
+        self.horizontalWidget.setSizePolicy(sizePolicy2)
+        self.horizontalLayout = QHBoxLayout(self.horizontalWidget)
+        self.horizontalLayout.setObjectName(u"horizontalLayout")
+        self.spacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
-        self.verticalLayout.addWidget(self.decision_box)
+        self.horizontalLayout.addItem(self.spacer)
+
+        self.save = QPushButton(self.horizontalWidget)
+        self.save.setObjectName(u"save")
+
+        self.horizontalLayout.addWidget(self.save)
+
+        self.cancel = QPushButton(self.horizontalWidget)
+        self.cancel.setObjectName(u"cancel")
+
+        self.horizontalLayout.addWidget(self.cancel)
+
+
+        self.verticalLayout.addWidget(self.horizontalWidget)
 
 
         self.retranslateUi(mainwindow)
-        self.decision_box.accepted.connect(mainwindow.accept)
-        self.decision_box.rejected.connect(mainwindow.reject)
 
         QMetaObject.connectSlotsByName(mainwindow)
     # setupUi
@@ -258,8 +287,13 @@ class Ui_mainwindow(object):
         self.recall_lab.setText(QCoreApplication.translate("mainwindow", u"Recall", None))
         self.col_2.setText(QCoreApplication.translate("mainwindow", u":", None))
         self.recall_show.setText(QCoreApplication.translate("mainwindow", u"__________", None))
-        self.pre_lab.setText(QCoreApplication.translate("mainwindow", u"F1 Precision", None))
+        self.pre_lab.setText(QCoreApplication.translate("mainwindow", u"Precision", None))
         self.col_3.setText(QCoreApplication.translate("mainwindow", u":", None))
         self.prec_show.setText(QCoreApplication.translate("mainwindow", u"__________", None))
+        self.f1_lab.setText(QCoreApplication.translate("mainwindow", u"F1", None))
+        self.col_4.setText(QCoreApplication.translate("mainwindow", u":", None))
+        self.f1_show.setText(QCoreApplication.translate("mainwindow", u"__________", None))
+        self.save.setText(QCoreApplication.translate("mainwindow", u"Save", None))
+        self.cancel.setText(QCoreApplication.translate("mainwindow", u"Cancel", None))
     # retranslateUi
 

@@ -15,9 +15,9 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QFont, QFontDatabase, QGradient, QIcon,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QAbstractButton, QApplication, QDialog, QDialogButtonBox,
-    QFrame, QHBoxLayout, QLabel, QLineEdit,
-    QSizePolicy, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QDialog, QFrame, QHBoxLayout,
+    QLabel, QLineEdit, QPushButton, QSizePolicy,
+    QSpacerItem, QVBoxLayout, QWidget)
 
 class Ui_mainwindow(object):
     def setupUi(self, mainwindow):
@@ -29,23 +29,23 @@ class Ui_mainwindow(object):
         self.verticalLayout = QVBoxLayout(mainwindow)
         self.verticalLayout.setSpacing(10)
         self.verticalLayout.setObjectName(u"verticalLayout")
-        self.titile = QLabel(mainwindow)
-        self.titile.setObjectName(u"titile")
+        self.title = QLabel(mainwindow)
+        self.title.setObjectName(u"title")
         sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.titile.sizePolicy().hasHeightForWidth())
-        self.titile.setSizePolicy(sizePolicy)
-        self.titile.setMinimumSize(QSize(0, 40))
-        self.titile.setMaximumSize(QSize(16777215, 40))
+        sizePolicy.setHeightForWidth(self.title.sizePolicy().hasHeightForWidth())
+        self.title.setSizePolicy(sizePolicy)
+        self.title.setMinimumSize(QSize(0, 40))
+        self.title.setMaximumSize(QSize(16777215, 40))
         font = QFont()
         font.setFamilies([u"Open Sans"])
         font.setPointSize(12)
-        self.titile.setFont(font)
-        self.titile.setStyleSheet(u"border: 1px solid grey;")
-        self.titile.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.title.setFont(font)
+        self.title.setStyleSheet(u"border: 1px solid grey;")
+        self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.verticalLayout.addWidget(self.titile)
+        self.verticalLayout.addWidget(self.title)
 
         self.line_2 = QFrame(mainwindow)
         self.line_2.setObjectName(u"line_2")
@@ -77,6 +77,7 @@ class Ui_mainwindow(object):
         sizePolicy1.setHeightForWidth(self.freq_edit.sizePolicy().hasHeightForWidth())
         self.freq_edit.setSizePolicy(sizePolicy1)
         self.freq_edit.setMinimumSize(QSize(0, 0))
+        self.freq_edit.setMaximumSize(QSize(100, 16777215))
 
         self.input_box.addWidget(self.freq_edit)
 
@@ -90,11 +91,22 @@ class Ui_mainwindow(object):
 
         self.verticalLayout.addWidget(self.line)
 
-        self.button_box = QDialogButtonBox(mainwindow)
-        self.button_box.setObjectName(u"button_box")
-        self.button_box.setStandardButtons(QDialogButtonBox.StandardButton.Ok)
+        self.horizontalLayout_3 = QHBoxLayout()
+        self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
+        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
-        self.verticalLayout.addWidget(self.button_box)
+        self.horizontalLayout_3.addItem(self.horizontalSpacer)
+
+        self.ok = QPushButton(mainwindow)
+        self.ok.setObjectName(u"ok")
+        sizePolicy1.setHeightForWidth(self.ok.sizePolicy().hasHeightForWidth())
+        self.ok.setSizePolicy(sizePolicy1)
+        self.ok.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+
+        self.horizontalLayout_3.addWidget(self.ok)
+
+
+        self.verticalLayout.addLayout(self.horizontalLayout_3)
 
 
         self.retranslateUi(mainwindow)
@@ -104,7 +116,9 @@ class Ui_mainwindow(object):
 
     def retranslateUi(self, mainwindow):
         mainwindow.setWindowTitle(QCoreApplication.translate("mainwindow", u"Mimimal Frequency", None))
-        self.titile.setText(QCoreApplication.translate("mainwindow", u"Minimal Frequency", None))
+        self.title.setText(QCoreApplication.translate("mainwindow", u"Minimal Frequency", None))
         self.freq_lab.setText(QCoreApplication.translate("mainwindow", u"Minimal Frequency :", None))
+        self.freq_edit.setText(QCoreApplication.translate("mainwindow", u"3", None))
+        self.ok.setText(QCoreApplication.translate("mainwindow", u"Ok", None))
     # retranslateUi
 

@@ -15,9 +15,9 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QFont, QFontDatabase, QGradient, QIcon,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QAbstractButton, QApplication, QDialog, QDialogButtonBox,
-    QFrame, QLabel, QListView, QSizePolicy,
-    QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QDialog, QFrame, QHBoxLayout,
+    QLabel, QListView, QPushButton, QSizePolicy,
+    QSpacerItem, QVBoxLayout, QWidget)
 
 class Ui_mainwindow(object):
     def setupUi(self, mainwindow):
@@ -56,11 +56,24 @@ class Ui_mainwindow(object):
 
         self.verticalLayout.addWidget(self.line)
 
-        self.button_box = QDialogButtonBox(mainwindow)
-        self.button_box.setObjectName(u"button_box")
-        self.button_box.setStandardButtons(QDialogButtonBox.StandardButton.Cancel|QDialogButtonBox.StandardButton.Ok)
+        self.buttonbox = QHBoxLayout()
+        self.buttonbox.setObjectName(u"buttonbox")
+        self.spacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
-        self.verticalLayout.addWidget(self.button_box)
+        self.buttonbox.addItem(self.spacer)
+
+        self.ok = QPushButton(mainwindow)
+        self.ok.setObjectName(u"ok")
+
+        self.buttonbox.addWidget(self.ok)
+
+        self.cancel = QPushButton(mainwindow)
+        self.cancel.setObjectName(u"cancel")
+
+        self.buttonbox.addWidget(self.cancel)
+
+
+        self.verticalLayout.addLayout(self.buttonbox)
 
 
         self.retranslateUi(mainwindow)
@@ -71,5 +84,7 @@ class Ui_mainwindow(object):
     def retranslateUi(self, mainwindow):
         mainwindow.setWindowTitle(QCoreApplication.translate("mainwindow", u"Keywords", None))
         self.stem_lab.setText(QCoreApplication.translate("mainwindow", u"Stem Found", None))
+        self.ok.setText(QCoreApplication.translate("mainwindow", u"Ok", None))
+        self.cancel.setText(QCoreApplication.translate("mainwindow", u"Cancel", None))
     # retranslateUi
 
