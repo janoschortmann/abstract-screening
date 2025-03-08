@@ -8,7 +8,6 @@ It only contains the MainWindow.
 @version 0.3
 """
 import sys
-#TODO: REMOVE PRINTS
 
 # Done to access all newer features of the typing library such as generics
 if sys.version_info < (3, 12):
@@ -130,7 +129,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
             except Exception as ex:
                 errorFactory(
                     "Error in next",
-                    f"Couldn't proceed because of : {ex}",
+                    f"Couldn't proceed because of : {ex}.",
                     self
                 ).show()
                 err = True
@@ -310,7 +309,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
             box.exec()
 
             # This could be changed
-            if response: raise Exception("Couldn't dismount.")
+            if response: raise Exception("Couldn't dismount")
 
         del unlabeled
 
@@ -358,7 +357,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                 GLO_DEL.call(
                     lambda _self, ex: errorFactory(
                         "Could not plot",
-                        f"Error in the plotting. Error: {ex}",
+                        f"Error in the plotting. Error: {ex}.",
                         _self
                     ).show(),
                     _self=self,
@@ -477,7 +476,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                             _self.next.setDisabled(False),
                             errorFactory(
                                 "Prediction Error",
-                                f"Error in the predictions with : {ex}",
+                                f"Error in the predictions with : {ex}.",
                                 _self
                             ).show()
                         ),
@@ -629,18 +628,12 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                     is valid. Note that p must be different from 0 and 1, otherwise the AI won't
                     work properly, so the division is also valid.
                     """
-                    delta_train_n = np.concatenate(
-                        (
-                            delta_train_n[
-                                np.random.choice(
-                                    len(delta_train_n),
-                                    size=max((length_n + math.ceil(length_p / pos)  - length), 0)
-                                )
-                            ],
-                            delta_train_n
-                        ),
-                        axis=0
-                    )
+                    data_train_n = data_train_n[
+                        np.random.choice(
+                            len(data_train_n),
+                            size=max((length_n + math.floor(length_p / pos)  - length), 0)
+                        )
+                    ]
                 case _: raise Exception("Not implemented")
 
             data_train    = np.concatenate((data_train_p, data_train_n), axis=0)
@@ -687,6 +680,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         )
 
         waiter:  Condition = Condition()
+        waiting:      bool = False
         ret_val: list = [False, ""]
 
         # Callback since this is UI manipulation
@@ -721,7 +715,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
             if splits > len(data_train):
                 errorFactory(
                     "Couldn't split",
-                    "The cross-validation could not be performed due to a lack of training data"
+                    "The cross-validation could not be performed due to a lack of training data."
                 ).show()
                 self.crossval_win = Statistics()
             else:
@@ -866,7 +860,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                 with open(file, mode="w", encoding="utf8") as writable:
                     writable.writelines(
                         map(
-                            lambda paper: f"{paper.title} | {paper.date} | {paper.jour} | {paper.prob}",
+                            lambda paper: f"{paper.title} | {paper.date} | {paper.jour} | {paper.prob}\n",
                             self.data_window.dataset[1][cutoff_index:]
                         )
                     )
@@ -874,7 +868,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                 GLO_DEL.wait(
                     lambda file, _self: mbFactory(
                         "Values printed",
-                        f"The final values were printed at {file}",
+                        f"The final values were printed at {file}.",
                         QMessageBox.Icon.Information,
                         QMessageBox.StandardButton.Ok,
                         _self
@@ -890,11 +884,16 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
 
             num_close: int = 0
             def _call(state: int) -> None:
-                nonlocal _closing, waiter, num_close
+                nonlocal _closing, waiter, num_close, self
                 if state == 0 or (num_close == 2 and state == -1):
                     with waiter:
                         ret_val[1] = "Rejected"
                         waiter.notify()
+
+                    # The windows that are already closed don't matter
+                    self.crossval_win.close()
+                    self.trained_win.close()
+                    self.test_win.close()
                 elif state == 1:
                     num_close = -1
                     Thread(target=_closing).start()
@@ -908,13 +907,27 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
             self.trained_win.show()
             self.test_win.show()
 
+            # Closing and releasing locks
+            global app
+            def _close(event) -> None:
+                nonlocal waiter, waiting
+                global app
+                if waiting: waiter.notify()
+                app.exit()
+            self.closeEvent = _close
+
         GLO_DEL.call(_uiCall)
+        move = self.closeEvent
+
         # In theory, there may be a race condition with the ui calling the _uiCall function
         # Before this is acquired and the user accepting or refusing everything. But,
         # Because this is so unlikely, it is left as such. There is no easy fix, since that
         # Would imply the UI waiting for this thread to acquire the lock only to notify it immediately,
         # Which would imply a rework of the Delegator class in its entirety, which seems unnecessary
-        with waiter: waiter.wait()
+        with waiter:
+            waiting = True
+            waiter.wait()
+            waiting = False
 
         return ret_val
 

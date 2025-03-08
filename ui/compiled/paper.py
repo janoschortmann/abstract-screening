@@ -20,10 +20,9 @@ from PySide6.QtWidgets import (QApplication, QDialog, QFrame, QHBoxLayout,
     QTextBrowser, QVBoxLayout, QWidget)
 
 class Ui_mainwindow(object):
-    def setupUi(self, mainwindow: QWidget):
+    def setupUi(self, mainwindow):
         if not mainwindow.objectName():
             mainwindow.setObjectName(u"mainwindow")
-        mainwindow.setWindowTitle("Paper Information")
         mainwindow.resize(340, 320)
         self.verticalLayout = QVBoxLayout(mainwindow)
         self.verticalLayout.setObjectName(u"verticalLayout")
@@ -150,11 +149,19 @@ class Ui_mainwindow(object):
 
         self.buttons.addItem(self.spacer)
 
+        self.yes_but = QPushButton(mainwindow)
+        self.yes_but.setObjectName(u"yes_but")
+        self.yes_but.setMinimumSize(QSize(100, 25))
+        self.yes_but.setMaximumSize(QSize(100, 25))
+        self.yes_but.setStyleSheet(u"background-color: rgb(155, 255, 155);")
+
+        self.buttons.addWidget(self.yes_but)
+
         self.no_but = QPushButton(mainwindow)
         self.no_but.setObjectName(u"no_but")
         self.no_but.setMinimumSize(QSize(100, 25))
         self.no_but.setMaximumSize(QSize(100, 25))
-        self.no_but.setStyleSheet(u"background-color: rgb(155, 255, 155);")
+        self.no_but.setStyleSheet(u"background-color: rgb(255, 90, 90);")
 
         self.buttons.addWidget(self.no_but)
 
@@ -162,16 +169,8 @@ class Ui_mainwindow(object):
         self.cancel_but.setObjectName(u"cancel_but")
         self.cancel_but.setMinimumSize(QSize(100, 25))
         self.cancel_but.setMaximumSize(QSize(100, 25))
-        self.cancel_but.setStyleSheet(u"background-color: rgb(255, 90, 90);")
 
         self.buttons.addWidget(self.cancel_but)
-
-        self.yes_but = QPushButton(mainwindow)
-        self.yes_but.setObjectName(u"yes_but")
-        self.yes_but.setMinimumSize(QSize(100, 25))
-        self.yes_but.setMaximumSize(QSize(100, 25))
-
-        self.buttons.addWidget(self.yes_but)
 
 
         self.verticalLayout.addLayout(self.buttons)
@@ -183,7 +182,7 @@ class Ui_mainwindow(object):
     # setupUi
 
     def retranslateUi(self, mainwindow):
-        mainwindow.setWindowTitle(QCoreApplication.translate("mainwindow", u"Dialog", None))
+        mainwindow.setWindowTitle(QCoreApplication.translate("mainwindow", u"Paper Information", None))
         self.title.setText(QCoreApplication.translate("mainwindow", u"Title", None))
         self.doi_lab.setText(QCoreApplication.translate("mainwindow", u"DOI", None))
         self.doi_inp.setText(QCoreApplication.translate("mainwindow", u"__________", None))
@@ -191,8 +190,8 @@ class Ui_mainwindow(object):
         self.jour_inp.setText(QCoreApplication.translate("mainwindow", u"__________", None))
         self.date_lab.setText(QCoreApplication.translate("mainwindow", u"Date", None))
         self.date_inp.setText(QCoreApplication.translate("mainwindow", u"__________", None))
-        self.no_but.setText(QCoreApplication.translate("mainwindow", u"Yes", None))
-        self.cancel_but.setText(QCoreApplication.translate("mainwindow", u"No", None))
-        self.yes_but.setText(QCoreApplication.translate("mainwindow", u"Cancel", None))
+        self.yes_but.setText(QCoreApplication.translate("mainwindow", u"Yes", None))
+        self.no_but.setText(QCoreApplication.translate("mainwindow", u"No", None))
+        self.cancel_but.setText(QCoreApplication.translate("mainwindow", u"Cancel", None))
     # retranslateUi
 

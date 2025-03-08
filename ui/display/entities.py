@@ -357,20 +357,23 @@ class SelectionModel(FindingModel):
 
         return None
 
-    # Default behaviour for clicking on an item
-    def clicked(self: Self, index: QModelIndex) -> None:
-        selected: Paper    = self._data[index.row()]
-        selected.label     = Paper.LABELS[(Paper.LABELS.index(selected.label) + 1) % len(SelectionModel.dict_images)]
-        field: QModelIndex = self.createIndex(index.row(), len(self._headers) - 1)
-        self.dataChanged.emit(field, field, [])
+    # # Default behaviour for clicking on an item
+    # @Slot(QModelIndex)
+    # def clicked(self: Self, index: QModelIndex) -> None:
+    #     selected: Paper    = self._data[index.row()]
+    #     selected.label     = Paper.LABELS[(Paper.LABELS.index(selected.label) + 1) % len(SelectionModel.dict_images)]
+    #     field: QModelIndex = self.createIndex(index.row(), len(self._headers) - 1)
+    #     self.dataChanged.emit(field, field, [])
 
     # Default behaviour for double clicking on an item
-    def doubleClicked(self: Self, index: QModelIndex) -> None:
+    @Slot(QModelIndex)
+    def clicked(self: Self, index: QModelIndex) -> None:
         from ui.windows import PaperView
         paper_view: PaperView = PaperView(self._data[index.row()])
         def _connection() -> None:
             nonlocal index, self
-            self.dataChanged.emit(index, index, [])
+            field: QModelIndex = self.createIndex(index.row(), len(self._headers) - 1)
+            self.dataChanged.emit(field, field, [])
         paper_view.changed.connect(_connection)
         paper_view.show()
 
@@ -385,11 +388,11 @@ class SelectionView(QTableView):
     # Basic Constructor. Only calls the super constructor
     def __init__(self: Self, data: list, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+
         self.__model = SelectionModel(data)
         self.setModel(self.__model)
 
         self.clicked.connect(self.__model.clicked)
-        self.doubleClicked.connect(self.__model.doubleClicked)
 
 """
 Basic implementation of the FindingModel as a TableView.

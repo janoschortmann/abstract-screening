@@ -309,20 +309,18 @@ class PaperView(QWidget, paper.Ui_mainwindow):
         self.jour_inp.setText(short(paper.jour))
         self.date_inp.setText(short(paper.date))
 
-        # Callbacks
-        self.yes_but.clicked.connect(
-            lambda ignored: (
-                ((paper.give("Accepted"), self.changed.emit()) if paper.label != "Accepted" else None),
+        def short(lab: str) -> Callable[[None], None]:
+            def inner() -> None:
+                nonlocal paper, lab, self
+                if paper.label != lab:
+                    paper.give(lab)
+                    self.changed.emit()
                 self.close()
-            )
-        )
-        self.no_but.clicked.connect(
-            lambda ignored: (
-                ((paper.give("Rejected"), self.changed.emit()) if paper.label != "Rejected" else None),
-                self.close()
-            )
-        )
-        self.cancel_but.clicked.connect(lambda ignored: self.close())
+            return inner
+
+        self.yes_but.clicked.connect(short(Paper.LABELS[1]))
+        self.no_but.clicked.connect(short(Paper.LABELS[2]))
+        self.cancel_but.clicked.connect(self.close)
 
 """
 Default implementation of the parameters window.
@@ -404,7 +402,7 @@ class Parameters(QWidget, params.Ui_mainwindow):
         except:
             errorFactory(
                 "Wrong Parameters",
-                "Parameters entered are invalid",
+                "Parameters entered are invalid.",
                 self
             ).show()
 
@@ -821,7 +819,7 @@ class Data(QWidget, data.Ui_mainwindow):
         GLO_DEL.call(
             lambda : mbFactory(
                 "Core Dumped",
-                f"Parsing of lines failed. Core dumped in the {Data.CORE_DUMP} directory",
+                f"Parsing of lines failed. Core dumped in the {Data.CORE_DUMP} directory.",
                 QMessageBox.Icon.Warning,
                 QMessageBox.StandardButton.Ok,
                 parent
@@ -852,7 +850,7 @@ class Data(QWidget, data.Ui_mainwindow):
             GLO_DEL.call(
                 lambda path, _self, ex: errorFactory(
                     "Error in adding",
-                    f"{ex} in {path.absolute()}",
+                    f"{ex} in {path.absolute()}.",
                     _self
                 ).show(),
                 path=_path,
@@ -927,7 +925,7 @@ class Data(QWidget, data.Ui_mainwindow):
             GLO_DEL.call(
                 lambda ex, path, _self: errorFactory(
                     "Error in removing",
-                    f"{ex} in {path.absolute()}",
+                    f"{ex} in {path.absolute()}.",
                     _self
                 ).show(),
                 ex=ex,
@@ -1308,7 +1306,7 @@ class First(QWidget, first.Ui_first_option):
         """
 
         # Temporary variable
-        text: str = self.directory_edit.text()
+        text: str = self.directory_edit.text().strip()
         self.directory: Path = Path(text if text else First.DEFAULT_QUERY)
         del text
 
@@ -1327,7 +1325,7 @@ class First(QWidget, first.Ui_first_option):
 
         val_per: float = 0
         bad_val: bool = False
-        try: val_per = float(self.sample_edit.text())
+        try: val_per = float(self.sample_edit.text().strip())
         except: bad_val = True
         if val_per <= 0 or 1 <= val_per or bad_val:
             GLO_DEL.call(
@@ -1343,7 +1341,7 @@ class First(QWidget, first.Ui_first_option):
 
         sample_per: float = 0
         bad_sample: bool = False
-        try: sample_per = float(self.sample_edit.text())
+        try: sample_per = float(self.sample_edit.text().strip())
         except: bad_sample = True
         if sample_per <= 0 or 1 <= sample_per or val_per + sample_per >= 1 or bad_sample:
             GLO_DEL.call(
@@ -1357,9 +1355,9 @@ class First(QWidget, first.Ui_first_option):
             raise ValueError()
         del bad_sample
 
-        date:    str = self.date_edit.text()
+        date:    str = self.date_edit.text().strip()
         matches: list[str] = re.findall(R"\d{4}-\d{4}", date)
-        if (len(matches) != 1 and date) or (date and len(date) != len(matches[0])) or (int(date[:4]) > int(date[5:])):
+        if (date and (len(matches) != 1 or len(date) != len(matches[0]))) or (int(date[:4]) > int(date[5:])):
             GLO_DEL.call(
                     lambda _self : errorFactory(
                     "Bad date range",
@@ -1394,7 +1392,7 @@ class First(QWidget, first.Ui_first_option):
         search_quote: str = quote(self.query_box.document().toPlainText().strip())
         additional:   str = quote(self.params_box.document().toPlainText().strip())
         while processed < limit:
-            url: str = f"https://api.elsevier.com/content/search/scopus?apiKey={key}{f"&date={date}" if date else ""}&query={search_quote}&view=COMPLETE&start={processed}&count={min(First.COUNT, limit - processed)}{f"&{additional}" if additional else ""}"
+            url: str = f"https://api.elsevier.com/content/search/scopus?apiKey={key}{f"&date={date}" if date else ""}&query={search_quote}&view=STANDARD&start={processed}&count={min(First.COUNT, limit - processed)}{f"&{additional}" if additional else ""}"
             processed += First.COUNT
 
             entries: Any = None
@@ -1428,7 +1426,7 @@ class First(QWidget, first.Ui_first_option):
                 GLO_DEL.call(
                     lambda _self: errorFactory(
                         "Critical Error",
-                        f"Fetching of scopus failed",
+                        f"Fetching of scopus failed.",
                         _self
                     ).show(),
                     _self=self
@@ -1578,7 +1576,7 @@ class Second(QWidget, second.Ui_second_option):
             GLO_DEL.call(
                 lambda _self: errorFactory(
                     "Error in parameters",
-                    "Exception was raised while setting the parameters",
+                    "Exception was raised while setting the parameters.",
                     _self
                 ).show(),
                 _self=self
@@ -1633,7 +1631,7 @@ class Third(QWidget, third.Ui_third_option):
             GLO_DEL.call(
                 lambda _self : errorFactory(
                     "Wrong parameters",
-                    "Parameters entered are wrong",
+                    "Parameters entered are wrong.",
                     _self
                 ).show(),
                 _self=self
@@ -1677,7 +1675,7 @@ def appendParams() -> dict[str, str]:
                 GLO_DEL.call(
                     lambda key: errorFactory(
                         "Bad argument",
-                        "Parameter received had an error (" + key + ')'
+                        f"Parameter received had an error ({key})."
                     ).show(),
                     key=key
                 )
