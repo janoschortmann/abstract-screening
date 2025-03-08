@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
                                 QPushButton,
                                 QSizePolicy
                               )
+from PySide6.QtGui     import QCloseEvent
 
 # Supposed to run first as the name of the file says
 if __name__ != "__main__":
@@ -314,7 +315,9 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         del unlabeled
 
         # Removing the callbacks
+        self.data_window.being_modified.disconnect(self.data_window.find_window.setDisabled)
         self.data_window.being_modified.disconnect(self.find_window.setDisabled)
+        self.data_window.being_modified.disconnect(self.data_window.setDisabled)
         self.data_window.being_modified.disconnect(self.options.setDisabled)
         self.options.querying.disconnect(self.params_window.setDisabled)
         self.params_window.writing.disconnect(self.options.setDisabled)
@@ -411,7 +414,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                 global app
                 stem: Stem = Stem(load.grams, self)
 
-                def _throwing() -> None:
+                def _throwing(_) -> None:
                     errorFactory(
                         "Stems rejected",
                         "The stems were rejected. If more stems are wanted, please add more papers to the training dataset.",
@@ -419,13 +422,16 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                     ).exec()
                     app.exit(1)
 
+                move = stem.closeEvent
                 def _accepted() -> None:
+                    nonlocal stem, move
                     self.grams_found = load.grams_found
                     self.grams       = load.grams
                     self.next.setDisabled(False)
-                    stem.close()
+                    move(QCloseEvent())
 
-                stem.cancel.pressed.connect(_throwing)
+                stem.closeEvent = _throwing
+                stem.cancel.pressed.connect(stem.close)
                 stem.ok.pressed.connect(_accepted)
 
                 stem.show()

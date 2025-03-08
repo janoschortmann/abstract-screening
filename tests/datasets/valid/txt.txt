@@ -1,1 +1,0 @@
-"First Title TXT", "Abstract TXT", "Journal TXT", "2000-01-01", "DOI TXT"

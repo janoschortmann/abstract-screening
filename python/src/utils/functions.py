@@ -99,8 +99,9 @@ Returns -1 if the target does not exist.
 @version 0.1
 """
 from math import floor
-def binarySearch[T](ite: Iterable[T], target: T, key: Callable[..., Any] | None = None) -> int:
+def binarySearch[T](ite: Any, target: T, key: Callable[..., T] | None = None) -> int:
     if len(ite) == 0: return -1
+    if key is None: key = lambda x: x
 
     low:   int = 0
     high:  int = len(ite)
@@ -129,8 +130,9 @@ if, foreach index, ite[index] is less or equal to the cutoff.
 @author  Thomas Gauthier
 @version 0.1
 """
-def cutoff[T](ite: Any, cutoff: T, key: Callable[..., Any] | None = None) -> int:
+def cutoff[T](ite: Any, cutoff: T, key: Callable[..., T] | None = None) -> int:
     if len(ite) == 0: return 0
+    if key is None: key = lambda x: x
 
     low:  int = 0
     high: int = len(ite)

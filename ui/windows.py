@@ -484,6 +484,7 @@ for the table to connect to.
 """
 @final
 class Find(QWidget, find.Ui_mainwindow):
+    clear_signal:  Signal = Signal()
     remove_signal: Signal = Signal()
     find_signal:   Signal = Signal()
 
@@ -500,7 +501,7 @@ class Find(QWidget, find.Ui_mainwindow):
         # Callbacks
         self.find_but.clicked.connect(self.find_signal.emit)
         self.clear_search.clicked.connect(self.remove_signal.emit)
-        self.clear_edits.clicked.connect(self.clear)
+        self.clear_edits.clicked.connect(lambda : (self.clear(), self.clear_signal.emit()))
 
     @Slot(bool)
     @override
@@ -515,7 +516,7 @@ class Find(QWidget, find.Ui_mainwindow):
     # Clear all edits
     @Slot()
     def clear(self: Self) -> None:
-        for edit in (self.title_edit, self.journal_edit, self.doi_edit, self.label): edit.clear()
+        for edit in (self.title_edit, self.journal_edit, self.doi_edit): edit.clear()
 
     # Sends a report of the given values that the user assigned
     # A quick shortcut with kwargs manipulation
@@ -689,10 +690,12 @@ class Data(QWidget, data.Ui_mainwindow):
             if temp == new: return
             self.leasers[index] = new
 
-            if temp is not None: temp[1].remove(paper)
-            if new is not None: new[1].append(paper)
-
-            self.emitters.update(new[0], temp[0])
+            if temp is not None:
+                temp[1].remove(paper)
+                self.emitters.add(temp[0])
+            if new is not None:
+                new[1].append(paper)
+                self.emitters.add(new[0])
 
     being_modified:    Signal = Signal(bool)
     validation_signal: Signal = Signal()
@@ -710,8 +713,8 @@ class Data(QWidget, data.Ui_mainwindow):
         self.__lock: Lock = Lock()
 
         # Callbacks
-        self.add_but.clicked.connect(lambda ignored: Thread(target=self.add).start())
-        self.remove_but.clicked.connect(lambda ignored: Thread(target=self.remove).start())
+        self.add_but.clicked.connect(lambda : Thread(target=self.add).start())
+        self.remove_but.clicked.connect(lambda : Thread(target=self.remove).start())
         self.find_but.clicked.connect(toggler(self.find_window))
 
         # Data attributes which are represented as a tuple of a Signal and list
@@ -754,6 +757,13 @@ class Data(QWidget, data.Ui_mainwindow):
                 lambda papers: Thread(
                     target=papers.removeFound,
                     kwargs=self.find_window.sendReport()
+                ).start()
+            )
+        )
+        self.find_window.clear_signal.connect(
+            lambda : self.accessPapers(
+                lambda papers: Thread(
+                    target=papers.model.clearCriterias
                 ).start()
             )
         )
@@ -1392,7 +1402,7 @@ class First(QWidget, first.Ui_first_option):
         search_quote: str = quote(self.query_box.document().toPlainText().strip())
         additional:   str = quote(self.params_box.document().toPlainText().strip())
         while processed < limit:
-            url: str = f"https://api.elsevier.com/content/search/scopus?apiKey={key}{f"&date={date}" if date else ""}&query={search_quote}&view=STANDARD&start={processed}&count={min(First.COUNT, limit - processed)}{f"&{additional}" if additional else ""}"
+            url: str = f"https://api.elsevier.com/content/search/scopus?apiKey={key}{f"&date={date}" if date else ""}&query={search_quote}&view=COMPLETE&start={processed}&count={min(First.COUNT, limit - processed)}{f"&{additional}" if additional else ""}"
             processed += First.COUNT
 
             entries: Any = None
