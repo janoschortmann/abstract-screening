@@ -405,6 +405,7 @@ class Parameters(QWidget, params.Ui_mainwindow):
                 "Parameters entered are invalid.",
                 self
             ).show()
+            self.writing.emit(False)
             raise ex
 
         funcs.mkabsent(Parameters.DIR)

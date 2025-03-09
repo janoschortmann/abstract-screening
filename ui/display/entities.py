@@ -9,7 +9,7 @@ which shows each paper. Another example would be the Operating Characteristic Cu
 @author  Thomas Gauthier
 @version 0.4
 """
-from multiprocessing      import Lock, RLock
+from threading            import Lock, RLock
 from PySide6              import QtGui
 from PySide6.QtCore       import (
                                    QAbstractTableModel,

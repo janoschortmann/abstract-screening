@@ -1,5 +1,6 @@
 # Output directories
 out/
+output/
 
 # Caching
 __pycache__/
@@ -9,7 +10,7 @@ build/
 dist/
 
 # PyInstaller files
-__init__.spec
+ACAS.spec
 
 # MacOS
 .DS_Store
