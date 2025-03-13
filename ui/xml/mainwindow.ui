@@ -27,6 +27,14 @@
 
 .QPushButton:pressed {
     background-color: #bbdefb;
+}
+
+.QMainWindow {
+	background-color: black;
+}
+
+.QEditBox {
+	background-color: grey;
 }</string>
   </property>
   <widget class="QWidget" name="centralwidget">

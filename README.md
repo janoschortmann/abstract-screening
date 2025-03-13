@@ -140,6 +140,10 @@ The script is condensed by `pyinstaller` to an executable. If you want to work o
 <li><code>pyqtGraph</code></li>
 <li><code>nltk</code></li>
 <li><code>Pandas</code></li>
+<li><code>urllib</code></li>
+<li><code>aiohttp</code></li>
+<li><code>QDarkStyle</code></li>
+<li><code>SciPy</code></li>
 </ul>
 <br>
 And have a Python version greater than 3.12 for typing support and the modern <code>aiohttp</code>, <code>threading</code>, <code>re</code>, etc. environments.

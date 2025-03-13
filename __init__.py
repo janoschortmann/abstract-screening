@@ -8,6 +8,8 @@ It only contains the MainWindow.
 @version 0.3
 """
 import sys
+import nltk
+nltk.download('stopwords')
 
 # Done to access all newer features of the typing library such as generics
 if sys.version_info < (3, 12):
@@ -30,7 +32,10 @@ if __name__ != "__main__":
     sys.exit(-1)
 
 # I <3 "QPixmap: Must construct a QGuiApplication before a QPixmap"
+import qdarkstyle
 app: QApplication = QApplication([])
+app.setStyleSheet(qdarkstyle.load_stylesheet(qt_api="PySide6"))
+
 from sklearn.metrics import confusion_matrix, accuracy_score, recall_score, precision_score, f1_score
 from sklearn.tree    import DecisionTreeClassifier
 from threading       import Condition, Lock, Thread
@@ -141,7 +146,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
 
     @override
     def closeEvent(self: Self, event: Any) -> None:
-        app.exit(0)
+        sys.exit(0)
 
     # Function that sets up the first step of the procedure.
     def mountFirst(self: Self) -> None:
@@ -420,7 +425,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                         "The stems were rejected. If more stems are wanted, please add more papers to the training dataset.",
                         self
                     ).exec()
-                    app.exit(1)
+                    sys.exit(1)
 
                 move = stem.closeEvent
                 def _accepted() -> None:
@@ -468,7 +473,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                     # Shortcut since self.options.rendReport also raises exceptions
                     ret_val: tuple[bool, str] = self.predictions(**self.options.sendReport())
                     if not ret_val[0]: raise Exception(f"Cancelled the predictions because : {ret_val[1]}")
-                    GLO_DEL.call(lambda mb, app: (mb.close(), app.exit(0)), mb=mb, app=app)
+                    GLO_DEL.call(lambda mb, app: (mb.close(), sys.exit(0)), mb=mb)
                 except TreatedException as _:
                     GLO_DEL.call(
                         lambda _self, mb: (mb.close(), _self.next.setDisabled(False)),
@@ -692,7 +697,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         # Callback since this is UI manipulation
         def _uiCall() -> None:
             nonlocal self, confused_train, confused_test, data_test, data_train, model, splits,\
-            _shortcutTest, _shortcutTrain, results_test, results_train, ret_val, waiter
+            _shortcutTest, _shortcutTrain, results_test, results_train, ret_val, waiter, waiting
             self.trained_win = Statistics(
                 an=confused_train[0,0],
                 fn=confused_train[1, 0],
@@ -726,39 +731,39 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                 self.crossval_win = Statistics()
             else:
                 def _shortcutCross(string: str) -> float:
-                    res: float = 0
-                    try:
-                        res = round(
-                            np.mean(
-                                ms.cross_val_score(
-                                    model,
-                                    data_train,
-                                    results_train,
-                                    scoring=string,
-                                    cv=splits,
-                                    error_score='raise'
-                                )
-                            ) * 100,
-                            2
-                        )
-                    except Exception as ex:
-                        with waiter:
-                            ret_val[1] = str(ex)
-                            waiter.notify()
-                        raise ex
-                    return res
+                    return round(
+                             np.mean(
+                               ms.cross_val_score(
+                                  model,
+                                  data_train,
+                                  results_train,
+                                  scoring=string,
+                                  cv=splits,
+                                  error_score='raise'
+                              )
+                          ) * 100,
+                          2
+                      )
+                
+                try:
+                    self.crossval_win = Statistics(
+                        f1=_shortcutCross("f1"),
+                        acc=_shortcutCross("accuracy"),
+                        pre=_shortcutCross("precision"),
+                        rec=_shortcutCross("recall")
+                    )
+                except Exception as ex:
+                    with waiter:
+                        ret_val[1] = f"Error in cross validation {ex}"
+                        if waiting: waiter.notify()
+                        else: waiting = True
+                        return
 
-                self.crossval_win = Statistics(
-                    f1=_shortcutCross("f1"),
-                    acc=_shortcutCross("accuracy"),
-                    pre=_shortcutCross("precision"),
-                    rec=_shortcutCross("recall")
-                )
             self.crossval_win.setWindowTitle("Cross Validation Window")
 
             blocker = Lock()
             def _closing() -> None:
-                nonlocal blocker, model, ret_val, self, waiter
+                nonlocal blocker, model, ret_val, self, waiting, waiter
                 global GLO_DEL
 
                 blocker.acquire(timeout=0)
@@ -773,8 +778,11 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
 
                 try: params: dict[str, str] = appendParams()
                 except:
-                    ret_val[1] = "Parameters are not defined"
-                    waiter.notify()
+                    with waiter:
+                        ret_val[1] = "Parameters are not defined"
+                        if waiting: waiter.notify()
+                        else: waiting = True
+                        return
 
                 pred: np.ndarray = model.predict_proba(self.grams_found)
                 for count in range(len(pred)): self.data_window.dataset[1][count].assign(float(pred[count, 1]))
@@ -841,7 +849,8 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                     else:
                         with waiter:
                             ret_val[1] = "Didn't select a cutoff, no papers met the criteria"
-                            waiter.notify()
+                            if waiting: waiter.notify()
+                            else: waiting = True
                             return
 
                 _show(self.data_window.training[1],   _outsideTraining)
@@ -891,7 +900,9 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                 # Programs ends here after going back to `mountForth`
                 blocker.release()
                 ret_val[0] = True
-                with waiter: waiter.notify()
+                with waiter:
+                    if waiting: waiter.notify()
+                    else: waiting = True
 
             num_close: int = 0
             def _call(state: int) -> None:
@@ -899,7 +910,8 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                 if state == 0 or (num_close == 2 and state == -1):
                     with waiter:
                         ret_val[1] = "Rejected"
-                        waiter.notify()
+                        if waiting:  waiter.notify()
+                        else: waiting = True
 
                     # The windows that are already closed don't matter
                     self.crossval_win.close()
@@ -923,8 +935,10 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
             def _close(event) -> None:
                 nonlocal waiter, waiting
                 global app
-                if waiting: waiter.notify()
-                app.exit()
+                with waiter:
+                    if waiting: waiter.notify()
+                    else: waiting = True
+                    sys.exit(0)
             self.closeEvent = _close
 
         GLO_DEL.call(_uiCall)
@@ -936,9 +950,9 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         # Would imply the UI waiting for this thread to acquire the lock only to notify it immediately,
         # Which would imply a rework of the Delegator class in its entirety, which seems unnecessary
         with waiter:
+            if waiting: return ret_val  # If an error is thrown before waiting
             waiting = True
             waiter.wait()
-            waiting = False
 
         return ret_val
 
