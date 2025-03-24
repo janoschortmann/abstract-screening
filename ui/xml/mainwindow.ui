@@ -30,11 +30,23 @@
 }
 
 .QMainWindow {
-	background-color: black;
+    background-color: black;
+}
+
+.QSplitter::handle::vertical {
+    background-color: #19232d;
+    border-radius 4px;
+    padding: 1px 1px 1px 1px;
+}
+
+.QSplitter::handle::horizonal {
+    background-color: #19232d;
+    border-radius: 4px;
+    padding: 1px 1px 1px 1px;
 }
 
 .QEditBox {
-	background-color: grey;
+    background-color: grey;
 }</string>
   </property>
   <widget class="QWidget" name="centralwidget">

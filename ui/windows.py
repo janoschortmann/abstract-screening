@@ -397,7 +397,7 @@ class Parameters(QWidget, params.Ui_mainwindow):
             step_cast: float = float(step_text)
             limit_cast:  int = int(query_text)
 
-            if limit_cast < 0 or thr_cast < 0 or thr_cast > 1 or step_cast < 0 or step_cast > 1:
+            if limit_cast <= 0 or thr_cast <= 0 or thr_cast >= 1 or step_cast <= 0 or step_cast >= 1:
                 raise Exception("Invalid")
         except Exception as ex:
             errorFactory(
@@ -406,7 +406,7 @@ class Parameters(QWidget, params.Ui_mainwindow):
                 self
             ).show()
             self.writing.emit(False)
-            raise ex
+            return
 
         funcs.mkabsent(Parameters.DIR)
         with open(Parameters.FILE, mode="w") as file:
@@ -1337,7 +1337,7 @@ class First(QWidget, first.Ui_first_option):
 
         val_per: float = 0
         bad_val: bool = False
-        try: val_per = float(self.sample_edit.text().strip())
+        try: val_per = float(self.validation_edit.text().strip())
         except: bad_val = True
         if val_per <= 0 or 1 <= val_per or bad_val:
             GLO_DEL.call(
@@ -1404,7 +1404,7 @@ class First(QWidget, first.Ui_first_option):
         search_quote: str = quote(self.query_box.document().toPlainText().strip())
         additional:   str = quote(self.params_box.document().toPlainText().strip())
         while processed < limit:
-            url: str = f"https://api.elsevier.com/content/search/scopus?apiKey={key}{f"&date={date}" if date else ""}&query={search_quote}&view=COMPLETE&start={processed}&count={min(First.COUNT, limit - processed)}{f"&{additional}" if additional else ""}"
+            url: str = f"https://api.elsevier.com/content/search/scopus?apiKey={key}{f"&date={date}" if date else ""}&query={search_quote}&view=STANDARD&start={processed}&count={min(First.COUNT, limit - processed)}{f"&{additional}" if additional else ""}"
             processed += First.COUNT
 
             entries: Any = None

@@ -19,6 +19,13 @@
     color: #fff;
 }
 
+.QSplitter::handle::horizonal {
+    background-color: #19232d;
+    border-radius: 4px;
+    padding: 1px 1px 1px 1px;
+}
+
+
 .QPushButton:pressed {
     background-color: #bbdefb;
 }</string>

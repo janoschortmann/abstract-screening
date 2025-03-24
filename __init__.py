@@ -140,6 +140,9 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                 ).show()
                 err = True
 
+        self.bottom.setStyleSheet("background-color: #19232d;")
+        self.body.setStyleSheet("background-color: #19232d;")
+
         self.next.clicked.connect(_executeNext)
         self.mountFirst()
         self.show()
@@ -473,7 +476,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                     # Shortcut since self.options.rendReport also raises exceptions
                     ret_val: tuple[bool, str] = self.predictions(**self.options.sendReport())
                     if not ret_val[0]: raise Exception(f"Cancelled the predictions because : {ret_val[1]}")
-                    GLO_DEL.call(lambda mb, app: (mb.close(), sys.exit(0)), mb=mb)
+                    GLO_DEL.call(lambda mb: (mb.close(), sys.exit(0)), mb=mb)
                 except TreatedException as _:
                     GLO_DEL.call(
                         lambda _self, mb: (mb.close(), _self.next.setDisabled(False)),

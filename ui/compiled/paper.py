@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'paper.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.8.1
+## Created by: Qt User Interface Compiler version 6.8.2
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -134,14 +134,6 @@ class Ui_mainwindow(object):
 
 
         self.verticalLayout.addLayout(self.info)
-
-        self.line_4 = QFrame(mainwindow)
-        self.line_4.setObjectName(u"line_4")
-        self.line_4.setMinimumSize(QSize(0, 20))
-        self.line_4.setFrameShape(QFrame.Shape.HLine)
-        self.line_4.setFrameShadow(QFrame.Shadow.Sunken)
-
-        self.verticalLayout.addWidget(self.line_4)
 
         self.buttons = QHBoxLayout()
         self.buttons.setObjectName(u"buttons")
