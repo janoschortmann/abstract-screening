@@ -113,10 +113,18 @@
        </widget>
       </item>
       <item row="2" column="2">
-       <widget class="QLineEdit" name="token_edit"/>
+       <widget class="QLineEdit" name="token_edit">
+        <property name="toolTip">
+         <string>The token if multiple users use this computer for queries</string>
+        </property>
+       </widget>
       </item>
       <item row="3" column="2">
-       <widget class="QLineEdit" name="thr_edit"/>
+       <widget class="QLineEdit" name="thr_edit">
+        <property name="toolTip">
+         <string>Exclude all papers with a probability below a threshold</string>
+        </property>
+       </widget>
       </item>
       <item row="0" column="0">
        <widget class="QLabel" name="query_lab">
@@ -155,10 +163,18 @@
        </widget>
       </item>
       <item row="0" column="2">
-       <widget class="QLineEdit" name="query_edit"/>
+       <widget class="QLineEdit" name="query_edit">
+        <property name="toolTip">
+         <string>The maximum number of papers queried in one search</string>
+        </property>
+       </widget>
       </item>
       <item row="1" column="2">
-       <widget class="QLineEdit" name="api_edit"/>
+       <widget class="QLineEdit" name="api_edit">
+        <property name="toolTip">
+         <string>The Scopus API key</string>
+        </property>
+       </widget>
       </item>
       <item row="3" column="0">
        <widget class="QLabel" name="thr_lab">
@@ -241,7 +257,11 @@
        </widget>
       </item>
       <item row="4" column="2">
-       <widget class="QLineEdit" name="step_edit"/>
+       <widget class="QLineEdit" name="step_edit">
+        <property name="toolTip">
+         <string>The probability step to list papers within a certain probability interval</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>

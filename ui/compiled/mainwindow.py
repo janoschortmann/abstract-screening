@@ -23,7 +23,7 @@ class Ui_mainwindow(object):
     def setupUi(self, mainwindow):
         if not mainwindow.objectName():
             mainwindow.setObjectName(u"mainwindow")
-        mainwindow.resize(700, 500)
+        mainwindow.resize(1000, 700)
         sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -85,6 +85,20 @@ class Ui_mainwindow(object):
 
         self.top.addWidget(self.data)
 
+        self.other_but = QWidget(self.info)
+        self.other_but.setObjectName(u"other_but")
+        self.other_but.setMinimumSize(QSize(0, 0))
+        self.horizontalLayout = QHBoxLayout(self.other_but)
+        self.horizontalLayout.setSpacing(0)
+        self.horizontalLayout.setObjectName(u"horizontalLayout")
+        self.horizontalLayout.setContentsMargins(0, -1, 0, -1)
+
+        self.top.addWidget(self.other_but)
+
+        self.filler = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.top.addItem(self.filler)
+
         self.about = QPushButton(self.info)
         self.about.setObjectName(u"about")
         self.about.setMinimumSize(QSize(80, 35))
@@ -93,19 +107,6 @@ class Ui_mainwindow(object):
         self.about.setFlat(True)
 
         self.top.addWidget(self.about)
-
-        self.filler = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.top.addItem(self.filler)
-
-        self.other_but = QWidget(self.info)
-        self.other_but.setObjectName(u"other_but")
-        self.horizontalLayout = QHBoxLayout(self.other_but)
-        self.horizontalLayout.setSpacing(0)
-        self.horizontalLayout.setObjectName(u"horizontalLayout")
-        self.horizontalLayout.setContentsMargins(0, -1, 0, -1)
-
-        self.top.addWidget(self.other_but)
 
 
         self.verticalLayout.addWidget(self.info)
@@ -117,17 +118,20 @@ class Ui_mainwindow(object):
         self.body.setOrientation(Qt.Orientation.Vertical)
         self.bottom = QSplitter(self.body)
         self.bottom.setObjectName(u"bottom")
-        sizePolicy.setHeightForWidth(self.bottom.sizePolicy().hasHeightForWidth())
-        self.bottom.setSizePolicy(sizePolicy)
+        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        sizePolicy1.setHorizontalStretch(0)
+        sizePolicy1.setVerticalStretch(0)
+        sizePolicy1.setHeightForWidth(self.bottom.sizePolicy().hasHeightForWidth())
+        self.bottom.setSizePolicy(sizePolicy1)
         self.bottom.setMaximumSize(QSize(16777215, 16777215))
         self.bottom.setOrientation(Qt.Orientation.Horizontal)
         self.steps = QWidget(self.bottom)
         self.steps.setObjectName(u"steps")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
-        sizePolicy1.setHorizontalStretch(0)
-        sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(self.steps.sizePolicy().hasHeightForWidth())
-        self.steps.setSizePolicy(sizePolicy1)
+        sizePolicy2 = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
+        sizePolicy2.setHorizontalStretch(0)
+        sizePolicy2.setVerticalStretch(0)
+        sizePolicy2.setHeightForWidth(self.steps.sizePolicy().hasHeightForWidth())
+        self.steps.setSizePolicy(sizePolicy2)
         self.steps.setMinimumSize(QSize(120, 120))
         self.steps.setMaximumSize(QSize(16777215, 16777215))
         self.steps.setAutoFillBackground(False)
@@ -149,11 +153,11 @@ class Ui_mainwindow(object):
 
         self.next = QPushButton(self.steps)
         self.next.setObjectName(u"next")
-        sizePolicy2 = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
-        sizePolicy2.setHorizontalStretch(0)
-        sizePolicy2.setVerticalStretch(0)
-        sizePolicy2.setHeightForWidth(self.next.sizePolicy().hasHeightForWidth())
-        self.next.setSizePolicy(sizePolicy2)
+        sizePolicy3 = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+        sizePolicy3.setHorizontalStretch(0)
+        sizePolicy3.setVerticalStretch(0)
+        sizePolicy3.setHeightForWidth(self.next.sizePolicy().hasHeightForWidth())
+        self.next.setSizePolicy(sizePolicy3)
         self.next.setMinimumSize(QSize(100, 65))
         self.next.setMaximumSize(QSize(16777215, 16777215))
         font1 = QFont()

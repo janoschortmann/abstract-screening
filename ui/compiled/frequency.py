@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'frequency.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.8.1
+## Created by: Qt User Interface Compiler version 6.8.2
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -118,7 +118,8 @@ class Ui_mainwindow(object):
         mainwindow.setWindowTitle(QCoreApplication.translate("mainwindow", u"Mimimal Frequency", None))
         self.title.setText(QCoreApplication.translate("mainwindow", u"Minimal Frequency", None))
         self.freq_lab.setText(QCoreApplication.translate("mainwindow", u"Minimal Frequency :", None))
-        self.freq_edit.setText(QCoreApplication.translate("mainwindow", u"3", None))
+        self.freq_edit.setText("")
+        self.freq_edit.setPlaceholderText(QCoreApplication.translate("mainwindow", u"3", None))
         self.ok.setText(QCoreApplication.translate("mainwindow", u"Ok", None))
     # retranslateUi
 

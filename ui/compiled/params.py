@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'params.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.8.1
+## Created by: Qt User Interface Compiler version 6.8.2
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -191,13 +191,28 @@ class Ui_mainwindow(object):
         self.col_5.setText(QCoreApplication.translate("mainwindow", u":", None))
         self.col_3.setText(QCoreApplication.translate("mainwindow", u":", None))
         self.api_lab.setText(QCoreApplication.translate("mainwindow", u"API Key", None))
+#if QT_CONFIG(tooltip)
+        self.token_edit.setToolTip(QCoreApplication.translate("mainwindow", u"The token if multiple users use this computer for queries", None))
+#endif // QT_CONFIG(tooltip)
+#if QT_CONFIG(tooltip)
+        self.thr_edit.setToolTip(QCoreApplication.translate("mainwindow", u"Exclude all papers with a probability below a threshold", None))
+#endif // QT_CONFIG(tooltip)
         self.query_lab.setText(QCoreApplication.translate("mainwindow", u"Query Limit", None))
         self.col_2.setText(QCoreApplication.translate("mainwindow", u":", None))
+#if QT_CONFIG(tooltip)
+        self.query_edit.setToolTip(QCoreApplication.translate("mainwindow", u"The maximum number of papers queried in one search", None))
+#endif // QT_CONFIG(tooltip)
+#if QT_CONFIG(tooltip)
+        self.api_edit.setToolTip(QCoreApplication.translate("mainwindow", u"The Scopus API key", None))
+#endif // QT_CONFIG(tooltip)
         self.thr_lab.setText(QCoreApplication.translate("mainwindow", u"Threshold", None))
         self.step_lab.setText(QCoreApplication.translate("mainwindow", u"Step", None))
         self.col_4.setText(QCoreApplication.translate("mainwindow", u":", None))
         self.col_1.setText(QCoreApplication.translate("mainwindow", u":", None))
         self.token_lab.setText(QCoreApplication.translate("mainwindow", u"Token", None))
+#if QT_CONFIG(tooltip)
+        self.step_edit.setToolTip(QCoreApplication.translate("mainwindow", u"The probability step to list papers within a certain probability interval", None))
+#endif // QT_CONFIG(tooltip)
         self.save_info.setText(QCoreApplication.translate("mainwindow", u"Save", None))
     # retranslateUi
 

@@ -16,8 +16,8 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel,
-    QLayout, QLineEdit, QPushButton, QSizePolicy,
-    QSplitter, QVBoxLayout, QWidget)
+    QLayout, QPushButton, QSizePolicy, QSplitter,
+    QVBoxLayout, QWidget)
 
 class Ui_mainwindow(object):
     def setupUi(self, mainwindow):
@@ -91,18 +91,30 @@ class Ui_mainwindow(object):
         self.bottom.setObjectName(u"bottom")
         self.bottom.setSizeConstraint(QLayout.SizeConstraint.SetDefaultConstraint)
         self.bottom.setContentsMargins(0, 0, 0, 0)
-        self.path = QLineEdit(self.hbox_2)
-        self.path.setObjectName(u"path")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.add_but = QPushButton(self.hbox_2)
+        self.add_but.setObjectName(u"add_but")
+        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         sizePolicy1.setHorizontalStretch(0)
         sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(self.path.sizePolicy().hasHeightForWidth())
-        self.path.setSizePolicy(sizePolicy1)
-        self.path.setMinimumSize(QSize(100, 25))
-        self.path.setMaximumSize(QSize(16777215, 16777215))
-        self.path.setFrame(False)
+        sizePolicy1.setHeightForWidth(self.add_but.sizePolicy().hasHeightForWidth())
+        self.add_but.setSizePolicy(sizePolicy1)
+        self.add_but.setMinimumSize(QSize(0, 0))
+        self.add_but.setMaximumSize(QSize(16777215, 16777215))
+        self.add_but.setAutoFillBackground(False)
+        self.add_but.setStyleSheet(u"background-color: rgb(115, 255, 115)")
 
-        self.bottom.addWidget(self.path)
+        self.bottom.addWidget(self.add_but)
+
+        self.remove_but = QPushButton(self.hbox_2)
+        self.remove_but.setObjectName(u"remove_but")
+        sizePolicy1.setHeightForWidth(self.remove_but.sizePolicy().hasHeightForWidth())
+        self.remove_but.setSizePolicy(sizePolicy1)
+        self.remove_but.setMinimumSize(QSize(0, 0))
+        self.remove_but.setMaximumSize(QSize(16777215, 16777215))
+        self.remove_but.setAutoFillBackground(False)
+        self.remove_but.setStyleSheet(u"background-color: rgb(255, 90, 90)")
+
+        self.bottom.addWidget(self.remove_but)
 
         self.specifier = QComboBox(self.hbox_2)
         self.specifier.setObjectName(u"specifier")
@@ -111,34 +123,9 @@ class Ui_mainwindow(object):
         sizePolicy2.setVerticalStretch(0)
         sizePolicy2.setHeightForWidth(self.specifier.sizePolicy().hasHeightForWidth())
         self.specifier.setSizePolicy(sizePolicy2)
-        self.specifier.setMinimumSize(QSize(80, 0))
+        self.specifier.setMinimumSize(QSize(100, 0))
 
         self.bottom.addWidget(self.specifier)
-
-        self.add_but = QPushButton(self.hbox_2)
-        self.add_but.setObjectName(u"add_but")
-        sizePolicy3 = QSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
-        sizePolicy3.setHorizontalStretch(0)
-        sizePolicy3.setVerticalStretch(0)
-        sizePolicy3.setHeightForWidth(self.add_but.sizePolicy().hasHeightForWidth())
-        self.add_but.setSizePolicy(sizePolicy3)
-        self.add_but.setMinimumSize(QSize(0, 25))
-        self.add_but.setMaximumSize(QSize(100, 16777215))
-        self.add_but.setAutoFillBackground(False)
-        self.add_but.setStyleSheet(u"background-color: rgb(115, 255, 115)")
-
-        self.bottom.addWidget(self.add_but)
-
-        self.remove_but = QPushButton(self.hbox_2)
-        self.remove_but.setObjectName(u"remove_but")
-        sizePolicy3.setHeightForWidth(self.remove_but.sizePolicy().hasHeightForWidth())
-        self.remove_but.setSizePolicy(sizePolicy3)
-        self.remove_but.setMinimumSize(QSize(0, 25))
-        self.remove_but.setMaximumSize(QSize(100, 16777215))
-        self.remove_but.setAutoFillBackground(False)
-        self.remove_but.setStyleSheet(u"background-color: rgb(255, 90, 90)")
-
-        self.bottom.addWidget(self.remove_but)
 
         self.splitter.addWidget(self.hbox_2)
 
@@ -154,8 +141,7 @@ class Ui_mainwindow(object):
         mainwindow.setWindowTitle(QCoreApplication.translate("mainwindow", u"Paper List Window", None))
         self.find_but.setText(QCoreApplication.translate("mainwindow", u"Find", None))
         self.abs_path.setText(QCoreApplication.translate("mainwindow", u"Complete List of Papers", None))
-        self.path.setPlaceholderText(QCoreApplication.translate("mainwindow", u"File or Directory", None))
-        self.add_but.setText(QCoreApplication.translate("mainwindow", u"Add", None))
-        self.remove_but.setText(QCoreApplication.translate("mainwindow", u"Remove", None))
+        self.add_but.setText(QCoreApplication.translate("mainwindow", u"Add Papers", None))
+        self.remove_but.setText(QCoreApplication.translate("mainwindow", u"Remove Papers", None))
     # retranslateUi
 

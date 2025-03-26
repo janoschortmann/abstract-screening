@@ -161,6 +161,8 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         self.display = FindingView(SelectionView(self.data_window.training[1]))
         self.options = First()
 
+        self.options.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
         self.body.insertWidget(0, self.display)
         self.bottom.insertWidget(0, self.options)
 
@@ -261,12 +263,12 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         # Temporary function using the directory as a variable
         def _add() -> None:
             saved: Path = self.options.directory.absolute()
-            self.data_window.add("Validation", osp.join(saved, First.FILES[0]))   # Validation for the last training step
-            self.data_window.add("Training", osp.join(saved, First.FILES[2]))  # Training for the AI
+            self.data_window.add(osp.join(saved, First.FILES[0]), "Validation")  # Validation for the last training step
+            self.data_window.add(osp.join(saved, First.FILES[2]), "Training")  # Training for the AI
             # Note that, like the comment said in the `query` function, this will try to add
             # Papers that were already added, but since the add function runs in O(n**2) and
             # This adds the most papers, the cost of putting this function earlier would be greater than leaving it on this line
-            self.data_window.add("", osp.join(saved, First.FILES[1]))  # All other citations
+            self.data_window.add(osp.join(saved, First.FILES[1]), "")  # All other citations
 
         # Callbacks for adding and removing the queries
         # Note that since the connection type is Direct, that implies that another thread will call this,
@@ -382,6 +384,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         # Plotting callbacks
         self.options.plot_signal.connect(lambda : Thread(target=_plotSignal).start())
         self.options.clear.pressed.connect(self.display.clear)
+        self.step_lab.setText("Step #2")
 
     """
     Note that the second window will not be dismounted since the rest of the
@@ -449,6 +452,8 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
         self.next.setDisabled(True)  # The data_window is already disabled
         Thread(target=_target).start()
 
+        self.step_lab.setText("Step #3")
+
     # Forth and final step of the mounting
     def mountForth(self: Self) -> None:
         self.options.setParent(None)
@@ -502,6 +507,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
             Thread(target=_threadcall).start()
 
         self.next.pressed.connect(_predict)
+        self.step_lab.setText("Step #4")
 
     """
     Function used to make predictions on a specific paper.
@@ -883,7 +889,7 @@ class MainWindow(QMainWindow, mainwindow.Ui_mainwindow):
                     if cutoff_index < len(self.data_window.dataset[1]):  # By one error
                         writable.writelines(
                             map(
-                                lambda paper: f"{paper.title} | {paper.date} | {paper.jour} | {paper.prob}\n",
+                                lambda paper: f'"{paper.title}", "{paper.date}", "{paper.jour}", "{paper.prob}"\n',
                                 self.data_window.dataset[1][(cutoff_index + 1):]
                             )
                         )

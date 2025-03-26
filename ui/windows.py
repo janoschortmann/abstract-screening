@@ -12,6 +12,7 @@ from threading         import Condition, Thread, Lock
 from typing            import *
 from PySide6.QtWidgets import (
                                 QDialog,
+                                QFileDialog,
                                 QHBoxLayout,
                                 QWidget,
                                 QMessageBox,
@@ -19,7 +20,7 @@ from PySide6.QtWidgets import (
                                 QSizePolicy,
                                 QTableView
                               )
-from PySide6.QtCore    import QObject, QThread, Qt, Signal, SignalInstance, Slot
+from PySide6.QtCore    import QObject, QThread, QFile, Qt, Signal, SignalInstance, Slot
 from PySide6.QtGui     import QStandardItemModel, QStandardItem
 
 from python.src.utils.files          import Paper, CENTRAL
@@ -555,7 +556,7 @@ It also supports multithreading. See method signature and definition
 for a specific method.
 
 @author  Thomas Gauthier
-@version 0.5
+@version 0.6
 """
 @final
 class Data(QWidget, data.Ui_mainwindow):
@@ -715,8 +716,22 @@ class Data(QWidget, data.Ui_mainwindow):
         self.__lock: Lock = Lock()
 
         # Callbacks
-        self.add_but.clicked.connect(lambda : Thread(target=self.add).start())
-        self.remove_but.clicked.connect(lambda : Thread(target=self.remove).start())
+        self.add_but.clicked.connect(
+            lambda : self.makeDialog(
+                lambda path: Thread(
+                    target=self.add,
+                    args=(path,)
+                ).start()
+            )
+        )
+        self.remove_but.clicked.connect(
+            lambda :self.makeDialog(
+                lambda path: Thread(
+                    target=self.remove,
+                    args=(path,)
+                ).start()
+            )
+        )
         self.find_but.clicked.connect(toggler(self.find_window))
 
         # Data attributes which are represented as a tuple of a Signal and list
@@ -838,11 +853,31 @@ class Data(QWidget, data.Ui_mainwindow):
             ).show()
         )
 
+    def makeDialog(self: Self, call: Callable[..., Any]) -> None:
+        dialog: QFileDialog = QFileDialog(self)
+        dialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
+        dialog.setNameFilter("Data (*.txt, *.csv)")
+        dialog.setViewMode(QFileDialog.ViewMode.List)
+
+        if dialog.exec():
+            files = dialog.selectedFiles()
+
+            if not files:
+                errorFactory(
+                    "Empty Selection",
+                    "The selection was empty",
+                    self
+                ).show()
+                return
+
+            for file in files:
+                call(file)
+
     # Default callback for the adder
-    def add(self: Self, text: str | None = None,  path: str | None = None) -> None:
+    def add(self: Self, path: str | QFile, text: str | None = None) -> None:
         global GLO_DEL
         text:   str = (self.specifier.currentText() if text is None else text)
-        _path: Path = Path((self.path.text() if path is None else path).strip())
+        _path: Path = Path(path.strip() if isinstance(path, str) else path)
         # Could also be done with a dictionary
         # But I don't feel like it
         dataset: tuple[SignalInstance, list] | None = None
@@ -922,9 +957,9 @@ class Data(QWidget, data.Ui_mainwindow):
 
     # Default callback for the remover
     # Will show a QMessageBox based on the removal process
-    def remove(self: Self, path: str | None = None) -> None:
+    def remove(self: Self, path: str | QFile) -> None:
         global GLO_DEL
-        _path: Path = Path((self.path.text() if path is None else path).strip())
+        _path: Path = Path(path.strip() if isinstance(path, str) else path)
 
         failures: list[tuple[Path, str]] = []
         try: self.accessPapers(
@@ -1226,7 +1261,7 @@ so that the main window can latch on it widhout doing any modifications to the s
 The querying starts a new process
 
 @author  Thomas Gautier, Janosch Ortmann
-@version 0.2
+@version 0.3
 """
 @final
 class First(QWidget, first.Ui_first_option):
@@ -1367,9 +1402,17 @@ class First(QWidget, first.Ui_first_option):
             raise ValueError()
         del bad_sample
 
-        date:    str = self.date_edit.text().strip()
-        matches: list[str] = re.findall(R"\d{4}-\d{4}", date)
-        if (date and (len(matches) != 1 or len(date) != len(matches[0]))) or (int(date[:4]) > int(date[5:])):
+        to:   str = self.to_edit.text().strip()
+        fr:   str = self.from_edit.text().strip()
+        date: str = ""
+
+        bad_date: bool = False
+        values:   list = []
+
+        try: values = (int(to), int(fr))
+        except: bad_date = True
+
+        if bad_date or len(to) != 4 or len(fr) != 4 or values[0] < values[1]:
             GLO_DEL.call(
                     lambda _self : errorFactory(
                     "Bad date range",
@@ -1379,7 +1422,9 @@ class First(QWidget, first.Ui_first_option):
                 _self=self
             )
             raise ValueError()
-        else: date = matches[0]
+        else: date = f"{fr}-{to}"
+        del to, fr, values, bad_date
+
         params: dict[str, str] = appendParams()
 
         """
@@ -1404,7 +1449,7 @@ class First(QWidget, first.Ui_first_option):
         search_quote: str = quote(self.query_box.document().toPlainText().strip())
         additional:   str = quote(self.params_box.document().toPlainText().strip())
         while processed < limit:
-            url: str = f"https://api.elsevier.com/content/search/scopus?apiKey={key}{f"&date={date}" if date else ""}&query={search_quote}&view=STANDARD&start={processed}&count={min(First.COUNT, limit - processed)}{f"&{additional}" if additional else ""}"
+            url: str = f"https://api.elsevier.com/content/search/scopus?apiKey={key}{f"&date={date}" if date else ""}&query={search_quote}&view=COMPLETE&start={processed}&count={min(First.COUNT, limit - processed)}{f"&{additional}" if additional else ""}"
             processed += First.COUNT
 
             entries: Any = None

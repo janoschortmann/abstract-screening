@@ -18,7 +18,7 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <property name="topMargin">
-    <number>0</number>
+    <number>1</number>
    </property>
    <item>
     <widget class="QWidget" name="vars" native="true">
@@ -121,18 +121,24 @@
       </item>
       <item row="1" column="6">
        <widget class="QLineEdit" name="splits_edit">
+        <property name="toolTip">
+         <string>Number of splits for AI confirmation</string>
+        </property>
         <property name="styleSheet">
-         <string notr="true">border: 0px solid grey;</string>
+         <string notr="true"/>
         </property>
         <property name="text">
-         <string>2</string>
+         <string>10</string>
         </property>
        </widget>
       </item>
       <item row="1" column="2">
        <widget class="QLineEdit" name="seed_edit">
+        <property name="toolTip">
+         <string>Random state for separating the testing and training datasets</string>
+        </property>
         <property name="styleSheet">
-         <string notr="true">border: 0px solid grey;</string>
+         <string notr="true"/>
         </property>
         <property name="text">
          <string>0</string>
@@ -158,8 +164,11 @@
       </item>
       <item row="0" column="2">
        <widget class="QLineEdit" name="size_edit">
+        <property name="toolTip">
+         <string>Size of the testing dataset (0.--)</string>
+        </property>
         <property name="styleSheet">
-         <string notr="true">border: 0px solid grey;</string>
+         <string notr="true"/>
         </property>
         <property name="text">
          <string>0.2</string>
@@ -168,8 +177,11 @@
       </item>
       <item row="0" column="6">
        <widget class="QLineEdit" name="pos_edit">
+        <property name="toolTip">
+         <string>Ratio of positively labeled papers for the AI (0.--)</string>
+        </property>
         <property name="styleSheet">
-         <string notr="true">border: 0px solid grey;</string>
+         <string notr="true"/>
         </property>
         <property name="text">
          <string>0.3</string>

@@ -243,7 +243,15 @@
         </widget>
        </item>
        <item>
-        <widget class="QDateEdit" name="from_date"/>
+        <widget class="QDateEdit" name="from_date">
+         <property name="date">
+          <date>
+           <year>2020</year>
+           <month>1</month>
+           <day>1</day>
+          </date>
+         </property>
+        </widget>
        </item>
        <item>
         <widget class="QLabel" name="to_lab">
@@ -258,7 +266,15 @@
         </widget>
        </item>
        <item>
-        <widget class="QDateEdit" name="to_date"/>
+        <widget class="QDateEdit" name="to_date">
+         <property name="date">
+          <date>
+           <year>2020</year>
+           <month>1</month>
+           <day>1</day>
+          </date>
+         </property>
+        </widget>
        </item>
       </layout>
      </item>

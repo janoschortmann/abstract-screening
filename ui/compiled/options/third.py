@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'third.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.8.1
+## Created by: Qt User Interface Compiler version 6.8.2
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -27,7 +27,7 @@ class Ui_third_option(object):
         third_option.setStyleSheet(u"")
         self.verticalLayout = QVBoxLayout(third_option)
         self.verticalLayout.setObjectName(u"verticalLayout")
-        self.verticalLayout.setContentsMargins(-1, 0, -1, -1)
+        self.verticalLayout.setContentsMargins(-1, 1, -1, -1)
         self.vars = QWidget(third_option)
         self.vars.setObjectName(u"vars")
         self.vars.setStyleSheet(u"border: 1px solid grey;")
@@ -82,13 +82,13 @@ class Ui_third_option(object):
 
         self.splits_edit = QLineEdit(self.vars)
         self.splits_edit.setObjectName(u"splits_edit")
-        self.splits_edit.setStyleSheet(u"border: 0px solid grey;")
+        self.splits_edit.setStyleSheet(u"")
 
         self.variables.addWidget(self.splits_edit, 1, 6, 1, 1)
 
         self.seed_edit = QLineEdit(self.vars)
         self.seed_edit.setObjectName(u"seed_edit")
-        self.seed_edit.setStyleSheet(u"border: 0px solid grey;")
+        self.seed_edit.setStyleSheet(u"")
 
         self.variables.addWidget(self.seed_edit, 1, 2, 1, 1)
 
@@ -101,13 +101,13 @@ class Ui_third_option(object):
 
         self.size_edit = QLineEdit(self.vars)
         self.size_edit.setObjectName(u"size_edit")
-        self.size_edit.setStyleSheet(u"border: 0px solid grey;")
+        self.size_edit.setStyleSheet(u"")
 
         self.variables.addWidget(self.size_edit, 0, 2, 1, 1)
 
         self.pos_edit = QLineEdit(self.vars)
         self.pos_edit.setObjectName(u"pos_edit")
-        self.pos_edit.setStyleSheet(u"border: 0px solid grey;")
+        self.pos_edit.setStyleSheet(u"")
 
         self.variables.addWidget(self.pos_edit, 0, 6, 1, 1)
 
@@ -222,10 +222,22 @@ class Ui_third_option(object):
         self.pos_lab.setText(QCoreApplication.translate("third_option", u"Positive Ratio", None))
         self.splits_lab.setText(QCoreApplication.translate("third_option", u"Splits", None))
         self.size_lab.setText(QCoreApplication.translate("third_option", u"Testing Size", None))
-        self.splits_edit.setText(QCoreApplication.translate("third_option", u"2", None))
+#if QT_CONFIG(tooltip)
+        self.splits_edit.setToolTip(QCoreApplication.translate("third_option", u"Number of splits for AI confirmation", None))
+#endif // QT_CONFIG(tooltip)
+        self.splits_edit.setText(QCoreApplication.translate("third_option", u"10", None))
+#if QT_CONFIG(tooltip)
+        self.seed_edit.setToolTip(QCoreApplication.translate("third_option", u"Random state for separating the testing and training datasets", None))
+#endif // QT_CONFIG(tooltip)
         self.seed_edit.setText(QCoreApplication.translate("third_option", u"0", None))
         self.seed_lab.setText(QCoreApplication.translate("third_option", u"Seed", None))
+#if QT_CONFIG(tooltip)
+        self.size_edit.setToolTip(QCoreApplication.translate("third_option", u"Size of the testing dataset (0.--)", None))
+#endif // QT_CONFIG(tooltip)
         self.size_edit.setText(QCoreApplication.translate("third_option", u"0.2", None))
+#if QT_CONFIG(tooltip)
+        self.pos_edit.setToolTip(QCoreApplication.translate("third_option", u"Ratio of positively labeled papers for the AI (0.--)", None))
+#endif // QT_CONFIG(tooltip)
         self.pos_edit.setText(QCoreApplication.translate("third_option", u"0.3", None))
         self.col_4.setText(QCoreApplication.translate("third_option", u":", None))
         self.sampling_lab.setText(QCoreApplication.translate("third_option", u"Sampling", None))

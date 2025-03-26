@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'find.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.8.1
+## Created by: Qt User Interface Compiler version 6.8.2
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -159,6 +159,7 @@ class Ui_mainwindow(object):
 
         self.from_date = QDateEdit(mainwindow)
         self.from_date.setObjectName(u"from_date")
+        self.from_date.setDate(QDate(2020, 1, 1))
 
         self.date_range.addWidget(self.from_date)
 
@@ -172,6 +173,7 @@ class Ui_mainwindow(object):
 
         self.to_date = QDateEdit(mainwindow)
         self.to_date.setObjectName(u"to_date")
+        self.to_date.setDate(QDate(2020, 1, 1))
 
         self.date_range.addWidget(self.to_date)
 
