@@ -194,7 +194,7 @@ class Interval(QDialog, interval.Ui_mainwindow):
 A simple class that will show the findings of the Operating Curve
 based on the inputs of the user.
 
-In theory, this shouldn't be necessary if the module mathplot was used,
+In theory, this shouldn't be necessary if the module matplot was used,
 but, given that the UI elements are created with PyQt, pyqtgraph is used.
 
 Since the user can move around the given graph, a fixed position,
@@ -999,6 +999,7 @@ class Data(QWidget, data.Ui_mainwindow):
 
         if path.is_dir():
             for other in path.iterdir(): failures.extend(self._recursiveRemove(other.absolute()))
+
         elif path.is_file():
             # Could maybe change this if it becomes a problem
             if not path.suffix == ".csv" and not path.suffix == ".txt": return
@@ -1208,6 +1209,7 @@ class Loading(QDialog, loading.Ui_mainwindow):
             nonlocal bi_words, bi_found
             bi_words = bi_words[respecting]
             bi_found = bi_found[:, respecting]
+
         update_bi(np.sum(bi_found, axis=0) >= self.__min_words)                         # Removing grams with not enough words
         update_bi(~np.isin(bi_words, punct))                                            # Removing grams with punctuation
         update_bi([not any(char.isdigit() for char in string) for string in bi_words])  # Or containing digits
