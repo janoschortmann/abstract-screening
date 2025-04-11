@@ -27,7 +27,7 @@ If multiple users are on the same computer, the Scopus database will ask for a u
 Finally, the two last fields are used to identify the cutoff used when the papers are assigned a probability of acceptance (the values should be between (0, 1) excluding). More information can be found in the [original paper](https://www.gerad.ca/en/papers/G-2024-53.pdf).\
 <br>
 If every field is entered correctly, you should be able to proceed with the querying, otherwise, an exception will be thrown here or later.
-<img src="./doc/gifs/params.gif/" style="display: block; margin-left: auto; margin-right: auto;">
+<center><img src="./doc/gifs/params.gif/"></center>
 
 ### First Step
 The first step is probably the most important. This is where you will find the papers related to your field and which ones will be analyzed by the AI. You have two main buttons, the `add` and the `remove`. The `add` button, on the first hand, adds the querying to the database. The `remove` button, on the other hand, will remove the papers that are queried if they were added to the dataset.\
@@ -37,20 +37,20 @@ When querying, you must choose a date range that seems interesting for your rese
 The querying itself will be based on the query search information (first box, on top) given by [this website](https://dev.elsevier.com/sc_search_tips.html) with additional parameters (second box, on bottom) in a standard formatting for an HTTP `GET` method, that is: <span style="font-family: Fira Code; color: red">param1={stuff}&param2={stuff}...</span>. The extra parameters can be obtained through the [API documentation](https://dev.elsevier.com/documentation/ScopusSearchAPI.wadl).\
 <br>
 This can be summed up with the following diagram :
-<img src="./doc/images/flow.png" style="display: block; margin-left: auto; margin-right: auto;">
+<center><img src="./doc/images/flow.png"></center>
 Finally, if no directory is provided, the querying will automatically go in the <u>~/.acas/query</u> folder.
 <br>
 <br>
 Here lies an example of what it should look like :
 <br>
 <br>
-<img src="./doc/gifs/querying.gif" style="display: block; margin-left: auto; margin-right: auto;">
+<center><img src="./doc/gifs/querying.gif"></center>
 
 ### Data Window
 If papers are already found and stored, it is possible, with the data window, to add, remove and move the papers from one dataset to another. That makes it possible to skip undersampling and oversampling in the last step of the procedure.
 <br>
 <br>
-<img src="./doc/gifs/files.gif" style="display: block; margin-left: auto; margin-right: auto;">
+<center><img src="./doc/gifs/files.gif"></center>\
 Also, the data window, as the main window on the first step, implement the functionality of finding papers based on some criterias that were provided. As an example, suppose that you want to find all the papers that are from the <i>IEEE journal</i>, with the find window, you can add a search criteria to find all papers (labeled, unlabeled, accepted or rejected) that are from that specific journal.
 <br>
 <br>
@@ -60,14 +60,14 @@ Also, the data window, as the main window on the first step, implement the funct
 <p>If you want to see all the papers after some specific search criteria, just press the <code>Clear All</code> button, which will reset the window.</p>
 <p>If you want to remove all papers that respect a specific criteria (such as all papers from the <i>IEEE journal</i>), just press the <code>Clear from search</code> button. I must advise that this is not recommended, since you may exclude papers that are valid to your specific needs.</p>
 <br>
-<img src="./doc/gifs/data.gif" style="display: block; margin-left: auto; margin-right: auto;">
+<center><img src="./doc/gifs/data.gif"></center>
 
 ### Labeling
 The labeling process is quite easy. The only thing you must do is to click on the paper you want to accept/reject and a window will pop with all the necessary information for you to make your decision. If you proceed with papers that are not labeled, they will automatically be included. This is done to minimise the chances of false negatives, which are detrimental to the ASL process. For more information, please go see the [original paper](https://www.gerad.ca/en/papers/G-2024-53.pdf).
 <br>
 <br>
-<p style="text-align: center"><img src="./doc/gifs/accepting.gif"></p>
-*Here, I didn't select the COMPLETE view but the STANDARD view, hence the lack of description*.
+<center><img src="./doc/gifs/accepting.gif"></center>
+<it>Here, I didn't select the COMPLETE view but the STANDARD view, hence the lack of description.</it>
 
 ### Operating Characteristic Curve (OCC)
 The operating characteristic curve is based on a [hypergeometric distribution](https://en.wikipedia.org/wiki/Hypergeometric_distribution). It gives out the number of positives that you need in a batch to accept or reject some paper interval. This is done to minimize, once again, the number of false negatives. More information is given by the [original paper](https://www.gerad.ca/en/papers/G-2024-53.pdf).
@@ -75,7 +75,7 @@ The operating characteristic curve is based on a [hypergeometric distribution](h
 <br>
 Comparing this to the querying process, this is way easier to do. You just plug the numbers in and you let the graph plot its plot. A window will then appear with the relevant information for the last step.
 <br>
-<p style="text-align: center"><img src="./doc/gifs/operating.gif"></p>
+<center><img src="./doc/gifs/operating.gif"></center>
 
 ### AI Window
 The AI window is relatively complex, since you must manually enter the AI parameters, and that requires some knowledge about how AI are designed. Since this project is not designed to teach you about AI, I would recommend going on your own to find the appropriate knowledge. Some good place to start are the websites [Geeks for Geeks](https://www.geeksforgeeks.org/) and [Scikit learn](https://scikit-learn.org/stable/index.html). For the following section, I will assume you know the basics of AI or you have read the original paper.\
@@ -87,7 +87,7 @@ Indeed, the model is trained based on the vectorization of words (or group of wo
 When the number entered is confirmed (or if no number is entered, then 3 is selected automatically), a window showing the list of the n-grams will appear.
 <br>
 <br>
-<img src="./doc/gifs/ai.gif" style="display: block; margin-left: auto; margin-right: auto;">
+<center><img src="./doc/gifs/ai.gif"></center>
 
 Then, you are presented with a few edit boxes. The first one designates the percentage (in decimal form) of the papers in the validation dataset that will become a testing dataset. The default value for this is given by 0.2, but can be changed according to your needs.\
 <br>
@@ -105,7 +105,7 @@ Finally, the last section is about the model and the sampling method (in the cas
 Once everything has been selected, press the next button, where three windows will appear given you the statistics of the model (accuracy, recall, precision and f1) in different databases. If you deem this acceptable, you may choose the `Ok` button. Otherwise, choose the `Cancel` button and try a different seed.
 <br>
 <br>
-<img src="./doc/gifs/stats.gif" style="display: block; margin-left: auto; margin-right: auto;">
+<center><img src="./doc/gifs/stats.gif"></center>
 
 When the AI model is confirmed, it will assign the probabilities of each paper being accepted and will prompt you with a window for the cutoff. The cutoff serves, as its name imply, as a minimal probability of acceptance threshold for the papers.
 <br>
@@ -116,13 +116,13 @@ If everything went according to plan, you will see a window (starting at the thr
 <br>
 <br>
 You will need to do this with part of the sampling dataset and corroborate this threshold with the validation dataset. If the two threshold do not correspond, the minimum of the two will be taken as the valid one.
-<img src="./doc/gifs/final.gif" style="display: block; margin-left: auto; margin-right: auto;">
+<center><img src="./doc/gifs/final.gif"></center>
 
 At the end, you will see a message saying that the values are printed at a specific location with their relative probability of acceptance.
 <br>
 <br>
 The only thing left to do is to go read, so good reading &#128513;
-<img src="./doc/images/papers.png" style="display: block; margin-left: auto; margin-right: auto;">
+<center><img src="./doc/images/papers.png"></center>
 
 ## About the code
 The ACAS project is based on the Python programming language implementing the [PyQt library](https://doc.qt.io/qtforpython-6/) based around the popular [Qt](https://doc.qt.io/qt-6/get-and-install-qt.html) framework. It also uses many Data-Science driven modules such as the [SciKit Learn](https://scikit-learn.org/stable/index.html) for the implementation of the AI and [NumPy](https://numpy.org/) for data manipulation. For optimization purposes, this application is concurrent, yet not parallel because of Python scoping rules.\
