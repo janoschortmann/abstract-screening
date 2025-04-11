@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Query Info Window</string>
+   <string>Parameters Window</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <property name="spacing">
@@ -47,7 +47,7 @@
       <enum>QFrame::Shape::NoFrame</enum>
      </property>
      <property name="text">
-      <string>Personal API Information</string>
+      <string>Scopus/AI Parameters</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignmentFlag::AlignCenter</set>

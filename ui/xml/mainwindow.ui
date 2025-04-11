@@ -90,7 +90,7 @@
           <string notr="true">border: 1px solid grey;</string>
          </property>
          <property name="text">
-          <string>Params</string>
+          <string>Scopus/AI</string>
          </property>
          <property name="flat">
           <bool>true</bool>

@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'first.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.8.2
+## Created by: Qt User Interface Compiler version 6.9.0
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -202,8 +202,9 @@ class Ui_first_option(object):
         self.search_lab = QLabel(first_option)
         self.search_lab.setObjectName(u"search_lab")
         self.search_lab.setFont(font)
-        self.search_lab.setStyleSheet(u"")
+        self.search_lab.setTextFormat(Qt.TextFormat.AutoText)
         self.search_lab.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.search_lab.setOpenExternalLinks(True)
 
         self.query_boxes.addWidget(self.search_lab)
 
@@ -219,8 +220,8 @@ class Ui_first_option(object):
         self.params_lab = QLabel(first_option)
         self.params_lab.setObjectName(u"params_lab")
         self.params_lab.setFont(font)
-        self.params_lab.setStyleSheet(u"")
         self.params_lab.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.params_lab.setOpenExternalLinks(True)
 
         self.query_boxes.addWidget(self.params_lab)
 
@@ -300,15 +301,15 @@ class Ui_first_option(object):
 #if QT_CONFIG(tooltip)
         self.directory_edit.setToolTip(QCoreApplication.translate("first_option", u"Target directory of query", None))
 #endif // QT_CONFIG(tooltip)
-        self.directory_edit.setPlaceholderText(QCoreApplication.translate("first_option", u"~/.acas", None))
+        self.directory_edit.setPlaceholderText(QCoreApplication.translate("first_option", u"~/.acas/query", None))
         self.add.setText(QCoreApplication.translate("first_option", u"Add", None))
         self.remove.setText(QCoreApplication.translate("first_option", u"Remove", None))
-        self.search_lab.setText(QCoreApplication.translate("first_option", u"Query Search", None))
+        self.search_lab.setText(QCoreApplication.translate("first_option", u"<a href=\"https://dev.elsevier.com/sc_search_tips.html\">Query Search</a>", None))
 #if QT_CONFIG(tooltip)
         self.query_box.setToolTip(QCoreApplication.translate("first_option", u"Querying parameters for Scopus", None))
 #endif // QT_CONFIG(tooltip)
         self.query_box.setPlainText(QCoreApplication.translate("first_option", u"TITLE-ABS-KEY(\"\")", None))
-        self.params_lab.setText(QCoreApplication.translate("first_option", u"Additional Params", None))
+        self.params_lab.setText(QCoreApplication.translate("first_option", u"<a href=\"https://dev.elsevier.com/documentation/ScopusSearchAPI.wadl\">Additional Parameters</a>", None))
 #if QT_CONFIG(tooltip)
         self.params_box.setToolTip(QCoreApplication.translate("first_option", u"Additional Parameters (in HTTP request format)", None))
 #endif // QT_CONFIG(tooltip)

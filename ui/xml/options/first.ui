@@ -308,7 +308,7 @@
             <string notr="true"/>
            </property>
            <property name="placeholderText">
-            <string>~/.acas</string>
+            <string>~/.acas/query</string>
            </property>
           </widget>
          </item>
@@ -419,14 +419,17 @@
          <italic>true</italic>
         </font>
        </property>
-       <property name="styleSheet">
-        <string notr="true"/>
-       </property>
        <property name="text">
-        <string>Query Search</string>
+        <string>&lt;a href=&quot;https://dev.elsevier.com/sc_search_tips.html&quot;&gt;Query Search&lt;/a&gt;</string>
+       </property>
+       <property name="textFormat">
+        <enum>Qt::TextFormat::AutoText</enum>
        </property>
        <property name="alignment">
         <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+       <property name="openExternalLinks">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
@@ -465,14 +468,14 @@
          <italic>true</italic>
         </font>
        </property>
-       <property name="styleSheet">
-        <string notr="true"/>
-       </property>
        <property name="text">
-        <string>Additional Params</string>
+        <string>&lt;a href=&quot;https://dev.elsevier.com/documentation/ScopusSearchAPI.wadl&quot;&gt;Additional Parameters&lt;/a&gt;</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+       <property name="openExternalLinks">
+        <bool>true</bool>
        </property>
       </widget>
      </item>

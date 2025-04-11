@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'params.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.8.2
+## Created by: Qt User Interface Compiler version 6.9.0
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -186,8 +186,8 @@ class Ui_mainwindow(object):
     # setupUi
 
     def retranslateUi(self, mainwindow):
-        mainwindow.setWindowTitle(QCoreApplication.translate("mainwindow", u"Query Info Window", None))
-        self.personal_lab.setText(QCoreApplication.translate("mainwindow", u"Personal API Information", None))
+        mainwindow.setWindowTitle(QCoreApplication.translate("mainwindow", u"Parameters Window", None))
+        self.personal_lab.setText(QCoreApplication.translate("mainwindow", u"Scopus/AI Parameters", None))
         self.col_5.setText(QCoreApplication.translate("mainwindow", u":", None))
         self.col_3.setText(QCoreApplication.translate("mainwindow", u":", None))
         self.api_lab.setText(QCoreApplication.translate("mainwindow", u"API Key", None))

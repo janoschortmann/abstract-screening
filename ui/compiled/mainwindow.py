@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'mainwindow.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.8.2
+## Created by: Qt User Interface Compiler version 6.9.0
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -192,7 +192,7 @@ class Ui_mainwindow(object):
 
     def retranslateUi(self, mainwindow):
         mainwindow.setWindowTitle(QCoreApplication.translate("mainwindow", u"Comprehensive Abstsract Screening", None))
-        self.params.setText(QCoreApplication.translate("mainwindow", u"Params", None))
+        self.params.setText(QCoreApplication.translate("mainwindow", u"Scopus/AI", None))
         self.data.setText(QCoreApplication.translate("mainwindow", u"Data", None))
         self.about.setText(QCoreApplication.translate("mainwindow", u"About", None))
         self.step_lab.setText(QCoreApplication.translate("mainwindow", u"Step #1", None))
